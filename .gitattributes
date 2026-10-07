@@ -1,0 +1,6 @@
+* text=auto
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.paa binary
+*.p3d binary
+*.pbo binary

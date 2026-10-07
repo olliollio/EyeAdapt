@@ -1,0 +1,19 @@
+# Signing keys - never commit the private key
+*.biprivatekey
+*.bisign
+
+# Build output
+*.pbo
+@EyeAdapt/
+
+# Logs
+*.log
+*.rpt
+*.mdmp
+
+# Editor / OS
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+Thumbs.db
+desktop.ini
