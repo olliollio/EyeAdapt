@@ -244,5 +244,18 @@ float CalcLightDose()
 - `GetPosition()` on attached lights: local or world.
 - Whether a modded destructor coexists with the vanilla one (expected yes).
 - Whether `Reflectors` in configs (headtorch, spotlight, PumpkinHelmet) produce actual engine lights.
-- `RaycastRV` `with`/`ignore` behaviour for the light's parent model.
+- `RaycastRV` `with`/`ignore` behaviour for the light's parent model. (In practice the light's own model never blocked, with the ray stopping 0.5 m short.)
+
+## Occlusion results in game (2026-10-08, `RaycastRV`, `ObjIntersectView`)
+
+| Obstacle | Blocks? | Hit class example |
+|---|---|---|
+| Container | yes | `Land_Container_1Moh_DE` |
+| Wooden barn | yes | `Land_Barn_Wood1` |
+| Tree (trunk/crown) | yes | `TreeHard_t_prunusDomestica_2s` (`IsTree()`) |
+| Bush | yes | `BushSoft_b_betulaHumilis_1s` (`IsBush()`) |
+| Fences (tested types) | **no**, ray passes | – |
+| Solid brick/concrete walls | untested | |
+
+EyeAdapt: walls/terrain → 15 %, trees/bushes → 50 % (`VEGETATION_OCCLUDED_FACTOR`).
 - Whether particle effects (`.ptc`) carry their own lights. Not visible from script.

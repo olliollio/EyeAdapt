@@ -134,14 +134,9 @@ class EyeAdaptLightDose
 		string blocker = "";
 		if (EyeAdaptConfig.USE_OCCLUSION && !isOwnSpot)
 		{
-			blocker = GetOccluder(light, eyePos, player);
-			if (blocker != "")
-			{
-				// A fire behind a wall still lights up the surroundings a bit (indirect light)
-				d *= EyeAdaptConfig.OCCLUDED_FACTOR;
-				if (d < EyeAdaptConfig.DOSE_THRESHOLD)
-					d = 0;
-			}
+			d *= GetOcclusionFactor(light, eyePos, player, blocker);
+			if (d < EyeAdaptConfig.DOSE_THRESHOLD)
+				d = 0;
 		}
 
 		if (verbose)
@@ -150,16 +145,19 @@ class EyeAdaptLightDose
 		return d;
 	}
 
-	// Returns a description of what blocks the line of sight eye -> light, or "" if it's free.
+	// 1 = free line of sight eye -> light, lower = blocked. blocker gets the class of what's in the way ("" if free).
+	// Walls/terrain block most of it (a fire behind a wall still lights up the surroundings a bit),
+	// trees and bushes only part of it (light gets through the crown, and walking past trunks shouldn't flicker).
 	// The ray stops OCCLUSION_END_OFFSET before the light so the fireplace/torch/lamp model itself can't block it,
 	// and ignores our own player and the object the light is attached to.
-	protected string GetOccluder(ScriptedLightBase light, vector eyePos, Object player)
+	protected float GetOcclusionFactor(ScriptedLightBase light, vector eyePos, Object player, out string blocker)
 	{
+		blocker = "";
 		vector lightPos = light.GetWorldPosition();
 		vector toLight = lightPos - eyePos;
 		float dist = toLight.Length();
 		if (dist <= EyeAdaptConfig.OCCLUSION_END_OFFSET)
-			return "";
+			return 1;
 
 		vector endPos = eyePos + toLight.Normalized() * (dist - EyeAdaptConfig.OCCLUSION_END_OFFSET);
 
@@ -169,13 +167,21 @@ class EyeAdaptLightDose
 		Object lightParent = light.GetAttachmentParent();
 
 		if (!DayZPhysics.RaycastRV(eyePos, endPos, contactPos, contactDir, contactComponent, hits, player, lightParent, false, false, ObjIntersectView))
-			return "";
+			return 1;
 
 		// Hit without an object = terrain (hill between us and the light)
 		if (hits.Count() == 0)
-			return "terrain";
+		{
+			blocker = "terrain";
+			return EyeAdaptConfig.OCCLUDED_FACTOR;
+		}
 
-		return hits.Get(0).GetType();
+		Object hit = hits.Get(0);
+		blocker = hit.GetType();
+		if (hit.IsTree() || hit.IsBush())
+			return EyeAdaptConfig.VEGETATION_OCCLUDED_FACTOR;
+
+		return EyeAdaptConfig.OCCLUDED_FACTOR;
 	}
 
 	// Flames look orange-red in RGB (fireplace 1.3/0.35/0.15 is "redder" than the red chemlight 1.0/0.3/0.2),
