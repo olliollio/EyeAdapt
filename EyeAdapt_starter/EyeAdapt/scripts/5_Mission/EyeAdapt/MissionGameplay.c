@@ -2,6 +2,8 @@
 modded class MissionGameplay
 {
 	protected ref EyeAdaptState m_EyeAdapt;
+	protected ref EyeAdaptLightDose m_EyeAdaptDose;
+	protected float m_EyeAdaptScanTimer;
 	protected PPERequester_EyeAdapt m_EyeAdaptPPE;
 	protected bool m_EyeAdaptBypass; // debug: visual effect switched off for A/B comparison
 	protected float m_EyeAdaptNight;  // night gate 0 (day) .. 1 (night)
@@ -15,6 +17,7 @@ modded class MissionGameplay
 		if (!m_EyeAdapt)
 		{
 			m_EyeAdapt = new EyeAdaptState();
+			m_EyeAdaptDose = new EyeAdaptLightDose();
 			Print("[EyeAdapt] loaded");
 		}
 	}
@@ -34,8 +37,17 @@ modded class MissionGameplay
 		if (EyeAdaptConfig.DEBUG_KEYS)
 			UpdateEyeAdaptDebugKeys(player);
 
+		// Light scan every SCAN_INTERVAL, adaptation smooths in between
+		m_EyeAdaptScanTimer += timeslice;
+		if (m_EyeAdaptScanTimer >= EyeAdaptConfig.SCAN_INTERVAL)
+		{
+			m_EyeAdaptScanTimer = 0;
+			m_EyeAdaptDose.Scan();
+		}
+
 		// Adaptation keeps running by day (eyes keep pace through dusk), only the visuals are gated
-		m_EyeAdapt.Update(timeslice);
+		float target = 1 - m_EyeAdaptDose.Get() * EyeAdaptConfig.MAX_DOSE_EFFECT;
+		m_EyeAdapt.Update(timeslice, target);
 		m_EyeAdaptNight = EyeAdaptEnvironment.GetNightFactor();
 		ApplyEyeAdaptVisuals();
 
@@ -43,10 +55,9 @@ modded class MissionGameplay
 		if (m_EyeAdaptLogTimer >= EyeAdaptConfig.LOG_INTERVAL)
 		{
 			m_EyeAdaptLogTimer = 0;
-			World world = g_Game.GetWorld();
-			Print(string.Format("[EyeAdapt] adaptation %1 | night %2 | boost %3 EV | engine EV %4 | bypass %5 | daytime %6 | IsNight %7 | sunOrMoon %8 | sceneHDRMul %9",
-				m_EyeAdapt.Get(), m_EyeAdaptNight, GetEyeAdaptEVBoost(), g_Game.GetCurrentEVValue(), m_EyeAdaptBypass,
-				g_Game.GetDayTime(), world.IsNight(), world.GetSunOrMoon(), GetSceneHDRMul(0)));
+			Print(string.Format("[EyeAdapt] adaptation %1 | dose %2 | strongest %3 (%4) | lights %5 | night %6 | boost %7 EV | bypass %8 | daytime %9",
+				m_EyeAdapt.Get(), m_EyeAdaptDose.Get(), m_EyeAdaptDose.GetStrongestName(), m_EyeAdaptDose.GetStrongestDose(),
+				m_EyeAdaptDose.GetLightCount(), m_EyeAdaptNight, GetEyeAdaptEVBoost(), m_EyeAdaptBypass, g_Game.GetDayTime()));
 		}
 	}
 
@@ -112,6 +123,12 @@ modded class MissionGameplay
 				player.MessageImportant("[EyeAdapt] effect OFF (vanilla)");
 			else
 				player.MessageImportant("[EyeAdapt] effect ON");
+		}
+
+		if (EyeAdaptKeyPressed(EyeAdaptConfig.KEY_LIGHTS))
+		{
+			m_EyeAdaptDose.Scan(true);
+			player.MessageImportant(string.Format("[EyeAdapt] dose %1, strongest %2 - details in script log", m_EyeAdaptDose.Get(), m_EyeAdaptDose.GetStrongestName()));
 		}
 	}
 

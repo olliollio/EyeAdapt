@@ -9,6 +9,23 @@ class EyeAdaptConfig
 	static const float FAST_CURVE_WEIGHT = 0.3;     // share of the total gain that comes from the fast stage (0..1)
 	static const float START_ADAPTATION = 0.0;      // value on login. Brief says 1 for fresh logins (Phase 5), 0 makes testing the curve easier
 
+	// Under light (asymmetric, CLAUDE.md design rule 5): adaptation drops much faster than it builds up
+	static const float LIGHT_FAST_SECONDS = 2.0;    // fast stage drops ~95 % within this time under light
+	static const float LIGHT_SLOW_SECONDS = 30.0;   // slow stage drops ~95 % within this time, so long exposure costs more
+
+	// ---- Light exposure (dose), CLAUDE.md §3.3 ----
+	// Example with defaults: campfire (brightness 4.75) at 2 m -> dose ~0.9, at 5 m -> ~0.3, at 15 m -> ~0
+	static const float SCAN_INTERVAL = 0.5;         // seconds between light scans (eyes are slow, no need for every frame)
+	static const float SCAN_RADIUS = 40.0;          // lights further away are ignored (also limited by each light's own radius)
+	static const float FALLOFF_EXPONENT = 2.0;      // 2 = physical inverse square. Lower = light reaches further
+	static const float DOSE_THRESHOLD = 0.02;       // contributions below this count as zero
+	static const float DOSE_SENSITIVITY = 2.0;      // saturation curve: dose = 1 - e^(-raw * sensitivity)
+	static const float MAX_DOSE_EFFECT = 1.0;       // how far a full dose pushes the target down (1 = fully light-adapted)
+	static const float VIEW_MIN_FACTOR = 0.25;      // lights behind you still count this much (they light up the scene)
+	static const float OWN_LIGHT_FACTOR = 0.1;      // own SPOT light (flashlight/headtorch/weapon light): this share of its brightness. Not free.
+	                                                // Own point lights (torch, chemlight, gas lamp) count fully by distance, like on the ground
+	static const float RED_LIGHT_FACTOR = 0.15;     // red light barely affects night vision
+
 	// ---- Night gate (design rule 1: night only, day stays vanilla) ----
 	// Sunrise/sunset come from the map's WorldData. Vanilla Chernarus in July: sunrise ~4.0 h, sunset ~20.0 h,
 	// vanilla itself counts sunset..sunset+2 h as dusk and sunrise..sunrise+2 h as dawn.
@@ -32,4 +49,5 @@ class EyeAdaptConfig
 	static const int   KEY_RESET = KeyCode.KC_NUMPAD1;  // adaptation -> 0 ("just left a lit room")
 	static const int   KEY_FULL = KeyCode.KC_NUMPAD3;   // adaptation -> 1 ("fully dark-adapted")
 	static const int   KEY_BYPASS = KeyCode.KC_NUMPAD7; // toggle the visual effect off/on for A/B comparison with vanilla
+	static const int   KEY_LIGHTS = KeyCode.KC_NUMPAD9; // print every light that contributes to the dose to the script log
 }
