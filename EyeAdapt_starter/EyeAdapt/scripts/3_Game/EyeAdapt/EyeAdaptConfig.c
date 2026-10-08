@@ -14,10 +14,10 @@ class EyeAdaptConfig
 	static const float LIGHT_SLOW_SECONDS = 30.0;   // slow stage drops ~95 % within this time, so long exposure costs more
 
 	// ---- Light exposure (dose), CLAUDE.md §3.3 ----
-	// Example with defaults: campfire (brightness 4.75) at 2 m -> dose ~0.9, at 5 m -> ~0.3, at 15 m -> ~0
+	// Example with defaults, looking at a campfire (brightness 4.75): 2 m -> dose ~0.98, 5 m -> ~0.7, 10 m -> ~0.4, 15 m -> ~0.25, 25 m (its radius) -> ~0.13
 	static const float SCAN_INTERVAL = 0.5;         // seconds between light scans (eyes are slow, no need for every frame)
 	static const float SCAN_RADIUS = 40.0;          // lights further away are ignored (also limited by each light's own radius)
-	static const float FALLOFF_EXPONENT = 2.0;      // 2 = physical inverse square. Lower = light reaches further
+	static const float FALLOFF_EXPONENT = 1.3;      // 2 = physical inverse square (felt too short in game: campfire had no effect at 15 m). Lower = light reaches further
 	static const float DOSE_THRESHOLD = 0.02;       // contributions below this count as zero
 	static const float DOSE_SENSITIVITY = 2.0;      // saturation curve: dose = 1 - e^(-raw * sensitivity)
 	static const float MAX_DOSE_EFFECT = 1.0;       // how far a full dose pushes the target down (1 = fully light-adapted)
@@ -27,6 +27,7 @@ class EyeAdaptConfig
 	static const float RED_LIGHT_FACTOR = 0.15;     // red light barely affects night vision
 	static const bool  USE_OCCLUSION = true;        // raycast eye -> light, only for lights that would count
 	static const float OCCLUDED_FACTOR = 0.15;      // blocked light still counts this much (indirect light around a wall/corner)
+	static const float VEGETATION_OCCLUDED_FACTOR = 0.5; // light behind a tree or bush (gets through the crown, no flicker when walking past trunks)
 	static const float OCCLUSION_END_OFFSET = 0.5;  // ray stops this far before the light so the fireplace/lamp model can't block it
 
 	// ---- Night gate (design rule 1: night only, day stays vanilla) ----
@@ -41,7 +42,7 @@ class EyeAdaptConfig
 	// ---- Ambient light (design rule 4: amplify existing light, don't create it) ----
 	// The EV boost is scaled by the sky: clear full moon = full boost, overcast new moon = MIN_AMBIENT_GAIN of it
 	static const float MOON_INTENSITY_FULL = 1.0;   // raw GetMoonIntensity() that counts as full moonlight. Range undocumented, calibrate from the log
-	static const float STARLIGHT_SHARE = 0.4;       // clear moonless sky, relative to clear full moon
+	static const float STARLIGHT_SHARE = 0.6;       // clear moonless sky, relative to clear full moon (0.4 looked nearly black in test)
 	static const float OVERCAST_CLEAR = 0.35;       // overcast up to this counts as clear (engine uses clear lighting below 0.35)
 	static const float OVERCAST_FULL = 1.0;         // fully overcast (engine: no moonlight at all)
 	static const float OVERCAST_MIN_SHARE = 0.25;   // fully overcast sky, relative to the same sky when clear
