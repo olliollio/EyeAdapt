@@ -263,7 +263,7 @@ For EyeAdapt glare: same building blocks (overlay white with small factor, EV bu
 - `Material.SetParam("BloomIntensity"/"BloomThreshold", v)` on the glow material returns true, but a **one-time** write has **no visible effect**: the engine refreshes the glow pass from its own values. Writing the value **every frame** works (clear halo around a campfire at intensity 2.75, threshold 0.2).
 - Use the material object the PPE manager renders with: `m_PPEClassMap.Get(PostProcessEffectType.Glow).GetMaterial()` (protected, so a `modded class PPEManager` accessor). Vanilla's PPE path is `"Graphics/Materials/postprocess/glow"`.
 - `Material` is a native handle (`typedef int[]`); vanilla checks it with `== 0x0`. There is no getter, so boosts are added to configured base values (vanilla `glow.emat`: intensity 0.75, threshold 0.5).
-- `Material.ResetParam(name)` restores the material's own value when done, so lighting mods that edit `glow.emat` keep their bloom. Reset on death and in `OnMissionFinish` too, material changes outlive the mission.
+- **Don't use `Material.ResetParam(name)`** (suspected from in-game behaviour, confirm): after a `ResetParam`, later `SetParam` calls on that parameter had no visible effect. The glow worked on the first activation and never again after the first reset; an earlier "one-time write has no effect" observation also followed a reset. EyeAdapt writes configured base values back instead (vanilla 0.75 / 0.5) and stops writing. Also do that on death and in `OnMissionFinish`.
 
 ## 6. Other vanilla requesters that touch our params [V]
 
@@ -372,7 +372,7 @@ class PPERequester_EyeAdapt extends PPERequester_GameplayBase
 
 Possible without hacks: the engine already has `SpeedDarkToBright` and `SpeedBrightToDark`. But **don't route it through stock PPE**: registered max is 1 (vanilla emat uses 6) and release writes 0.3. Options:
 1. `modded class PPEGlow` → override `RegisterMaterialParameters` (call super, then re-register params 1-3 with emat-matching defaults and wider ranges, e.g. `[0.01..50]`). Risk: hardcoded defaults would overwrite a lighting mod's glow.emat values (Lad's mod edits these).
-2. Better: set them directly with `GetWorld().GetMaterial("Graphics/Materials/postprocess/glow").SetParam("SpeedBrightToDark", x)` only while active, and restore with `ResetParam(...)` (keeps any modded emat value). PPE won't fight us because nothing in vanilla requests these params. Test `ResetParam` first.
+2. Better: set them directly with `SetParam` on the PPE manager's glow material only while active (see §5.1). **Don't restore with `ResetParam`**, it appears to block later `SetParam` calls (§5.1); write the original values back instead. PPE won't fight us because nothing in vanilla requests these params.
 
 ### 9.3 Open questions from CLAUDE.md §8
 
