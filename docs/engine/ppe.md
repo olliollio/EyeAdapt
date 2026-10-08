@@ -371,7 +371,7 @@ Possible without hacks: the engine already has `SpeedDarkToBright` and `SpeedBri
 
 | Q | Status |
 |---|---|
-| Q1 Can a script EV boost brighten a dark config, or is it capped by EVMin/EVMax? | **Still open, but indirect evidence says yes**: NVG/flashbang use the same `SetEVUser` channel with +7/+50 EV and work on dark nights. EVMin/EVMax are not script-accessible at all. First Phase-1 test: log `g_Game.GetCurrentEVValue()`, apply +1/+2/+3 EV on `lightingConfig 1`, compare screenshots. |
+| Q1 Can a script EV boost brighten a dark config, or is it capped by EVMin/EVMax? | **Answered (in-game, 2026-10-08): not capped.** Tested on `lightingConfig 1` (confirmed via `CfgGameplayHandler.GetLightingConfig()` on the client), moon 0, overcast 0.59: +0..+5 EV all apply, `sceneHDRMul` doubles per step, `GetCurrentEVValue()` follows one PPE update later. Sweet spot for full adaptation: +4..+5 EV. Note: with `enableCfgGameplayFile` unset, `lightingConfig` comes from server.cfg, not cfggameplay.json (`cfggameplaydatajson.c:173`). |
 | Q2 Are glow.emat params accessible at runtime? | **Answered (script side)**: yes, `PPEGlow` exposes VisiblePercent, TargetBrightness, SpeedDarkToBright, SpeedBrightToDark, bloom, filmic params; `Material.SetParam/ResetParam` also work by name. Runtime visual effect and speed units still to test. |
 | Q3 Does vanilla eye accommodation fight our exposure? | **Open.** Unknown whether auto-exposure measures before or after EVUser. Also: vanilla requesters will "fight" via PPE layering (NVG, flashbang ADD on EV → +100 EV bug), solved by yielding our EV layer while those run. |
 

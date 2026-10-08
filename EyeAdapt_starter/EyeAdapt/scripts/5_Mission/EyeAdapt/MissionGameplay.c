@@ -2,6 +2,9 @@
 modded class MissionGameplay
 {
 	protected ref EyeAdaptState m_EyeAdapt;
+	protected PPERequester_EyeAdapt m_EyeAdaptPPE;
+	protected bool m_EyeAdaptBypass; // debug: visual effect switched off for A/B comparison
+	protected float m_EyeAdaptNight;  // night gate 0 (day) .. 1 (night)
 	protected float m_EyeAdaptLogTimer;
 
 	override void OnInit()
@@ -28,26 +31,41 @@ modded class MissionGameplay
 		if (!player || !player.IsAlive())
 			return;
 
+		if (EyeAdaptConfig.DEBUG_KEYS)
+			UpdateEyeAdaptDebugKeys(player);
+
+		// Adaptation keeps running by day (eyes keep pace through dusk), only the visuals are gated
 		m_EyeAdapt.Update(timeslice);
+		m_EyeAdaptNight = EyeAdaptEnvironment.GetNightFactor();
+		ApplyEyeAdaptVisuals();
 
 		m_EyeAdaptLogTimer += timeslice;
 		if (m_EyeAdaptLogTimer >= EyeAdaptConfig.LOG_INTERVAL)
 		{
 			m_EyeAdaptLogTimer = 0;
-			Print(string.Format("[EyeAdapt] adaptation = %1 | engine EV %2", m_EyeAdapt.Get(), g_Game.GetCurrentEVValue()));
+			World world = g_Game.GetWorld();
+			Print(string.Format("[EyeAdapt] adaptation %1 | night %2 | boost %3 EV | engine EV %4 | bypass %5 | daytime %6 | IsNight %7 | sunOrMoon %8 | sceneHDRMul %9",
+				m_EyeAdapt.Get(), m_EyeAdaptNight, GetEyeAdaptEVBoost(), g_Game.GetCurrentEVValue(), m_EyeAdaptBypass,
+				g_Game.GetDayTime(), world.IsNight(), world.GetSunOrMoon(), GetSceneHDRMul(0)));
 		}
-
-		if (EyeAdaptConfig.TEST_EV_CYCLE)
-			UpdateEyeAdaptEVTest(player, timeslice);
 	}
 
-	// ---- Phase 1 test: does a script exposure boost brighten the night? ----
+	// Effect strength 0..1 that drives all visuals. Rounded to 1/500 so the PPE requests
+	// only resend when a value visibly changes (EV steps of ~0.01).
+	protected float GetEyeAdaptStrength()
+	{
+		if (m_EyeAdaptBypass)
+			return 0;
 
-	protected PPERequester_EyeAdapt m_EyeAdaptPPE;
-	protected float m_EyeAdaptTestTimer = -1; // -1 = first tick, apply step 0 immediately
-	protected int m_EyeAdaptTestStep;
+		return Math.Round(m_EyeAdapt.Get() * m_EyeAdaptNight * 500) / 500;
+	}
 
-	protected void UpdateEyeAdaptEVTest(PlayerBase player, float timeslice)
+	protected float GetEyeAdaptEVBoost()
+	{
+		return GetEyeAdaptStrength() * EyeAdaptConfig.MAX_EV_BOOST;
+	}
+
+	protected void ApplyEyeAdaptVisuals()
 	{
 		if (!m_EyeAdaptPPE)
 			m_EyeAdaptPPE = PPERequester_EyeAdapt.Cast(PPERequesterBank.GetRequester(PPERequester_EyeAdapt));
@@ -56,22 +74,54 @@ modded class MissionGameplay
 		if (!m_EyeAdaptPPE.IsRequesterRunning())
 			m_EyeAdaptPPE.Start();
 
-		if (m_EyeAdaptTestTimer >= 0)
+		float s = GetEyeAdaptStrength();
+		float saturation = 1 - s * EyeAdaptConfig.MAX_DESATURATION;
+		float contrast = 1 + s * EyeAdaptConfig.MAX_CONTRAST_BOOST;
+
+		// Blue shift: keep blue, pull red down fully and green halfway
+		float shift = s * EyeAdaptConfig.BLUE_SHIFT;
+		vector tint = Vector(1 - shift, 1 - shift * 0.5, 1);
+
+		m_EyeAdaptPPE.Apply(GetEyeAdaptEVBoost(), saturation, contrast, tint);
+	}
+
+	// ---- Debug keys (see EyeAdaptConfig) ----
+
+	protected void UpdateEyeAdaptDebugKeys(PlayerBase player)
+	{
+		// Ignore keys while typing in chat or using any menu
+		if (GetUIManager().GetMenu())
+			return;
+
+		if (EyeAdaptKeyPressed(EyeAdaptConfig.KEY_RESET))
 		{
-			m_EyeAdaptTestTimer += timeslice;
-			if (m_EyeAdaptTestTimer < EyeAdaptConfig.TEST_EV_STEP_SECONDS)
-				return;
-			m_EyeAdaptTestStep = (m_EyeAdaptTestStep + 1) % (EyeAdaptConfig.TEST_EV_MAX + 1);
+			m_EyeAdapt.Set(0);
+			player.MessageImportant("[EyeAdapt] adaptation reset to 0");
 		}
-		m_EyeAdaptTestTimer = 0;
 
-		m_EyeAdaptPPE.SetExposureBoost(m_EyeAdaptTestStep);
+		if (EyeAdaptKeyPressed(EyeAdaptConfig.KEY_FULL))
+		{
+			m_EyeAdapt.Set(1);
+			player.MessageImportant("[EyeAdapt] adaptation set to 1");
+		}
 
-		player.MessageImportant("[EyeAdapt] test boost +" + m_EyeAdaptTestStep.ToString() + " EV");
-		// PPE applies the request on its next update, so "engine EV" may still show the previous step's value
-		Weather weather = g_Game.GetWeather();
-		Print(string.Format("[EyeAdapt] test boost +%1 EV | engine EV %2 | sceneHDRMul %3 | daytime %4 | fog %5 | overcast %6 | moon %7",
-			m_EyeAdaptTestStep, g_Game.GetCurrentEVValue(), GetSceneHDRMul(0), g_Game.GetDayTime(),
-			weather.GetFog().GetActual(), weather.GetOvercast().GetActual(), g_Game.GetWorld().GetMoonIntensity()));
+		if (EyeAdaptKeyPressed(EyeAdaptConfig.KEY_BYPASS))
+		{
+			m_EyeAdaptBypass = !m_EyeAdaptBypass;
+			if (m_EyeAdaptBypass)
+				player.MessageImportant("[EyeAdapt] effect OFF (vanilla)");
+			else
+				player.MessageImportant("[EyeAdapt] effect ON");
+		}
+	}
+
+	// True once per key press (ClearKey suppresses auto-repeat until the key is released)
+	protected bool EyeAdaptKeyPressed(int key)
+	{
+		if (KeyState(key) == 0)
+			return false;
+
+		ClearKey(key);
+		return true;
 	}
 }
