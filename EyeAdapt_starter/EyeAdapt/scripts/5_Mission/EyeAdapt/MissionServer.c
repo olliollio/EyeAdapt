@@ -68,6 +68,9 @@ modded class MissionServer
 	{
 		super.OnUpdate(timeslice);
 
+		// Night length for AdaptationMode "relativeToNight" (the offline curve in the persistence uses it too)
+		EyeAdaptNightClock.Update(timeslice);
+
 		float interval = EyeAdaptSettings.Get().SaveIntervalSeconds;
 		if (interval <= 0)
 			return;

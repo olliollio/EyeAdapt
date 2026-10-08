@@ -142,6 +142,8 @@ Weather: GetOvercast(), GetFog(), GetRain(), GetSnowfall(), GetWindSpeed(), GetW
 - Server side, `g_Game.ServerConfigGetInt(string name)` (`game.c:1130`) reads server.cfg keys (vanilla reads `lightingConfig`, `disablePersonalLight`, `enableCfgGameplayFile`, ...). Only an **int** getter exists, so `serverNightTimeAcceleration = 0.5` style values can't be read exactly. [U whether it works for these keys at all]
 - `World.SetTimeMultiplier` exists (debug override), no getter.
 
+**Verified in game (2026-10-08):** measuring `GetDayTime()` progress per real second at deep night works on client and server alike. At `serverTimeAcceleration=12`, `serverNightTimeAcceleration=4` it measured 0.01334 game h/s (48x exact), September night ≈ 743 real s. Admin time changes inside a sample produce outliers, so samples > 25 % off need confirmation by a second one (`EyeAdaptNightClock`).
+
 **Measuring (recommended, client-only, no admin input):**
 
 ```c
