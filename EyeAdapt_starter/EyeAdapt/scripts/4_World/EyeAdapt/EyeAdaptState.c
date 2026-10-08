@@ -17,7 +17,7 @@ class EyeAdaptState
 	void Update(float timeslice, float target)
 	{
 		m_Fast = Approach(m_Fast, target, timeslice, EyeAdaptSettings.Get().FastCurveSeconds, EyeAdaptSettings.Get().LightFastSeconds);
-		m_Slow = Approach(m_Slow, target, timeslice, EyeAdaptSettings.Get().FullAdaptSeconds, EyeAdaptSettings.Get().LightSlowSeconds);
+		m_Slow = Approach(m_Slow, target, timeslice, EyeAdaptSettings.GetFullAdaptSeconds(), EyeAdaptSettings.Get().LightSlowSeconds);
 	}
 
 	// 0 = light-adapted, 1 = fully dark-adapted

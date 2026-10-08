@@ -42,7 +42,7 @@ class EyeAdaptStore
 
 		// Offline time counts as darkness, at the slow stage's rate (same curve as EyeAdaptState)
 		float offline = Math.Max(UnixNow() - rec.SavedAtUnix, 0);
-		float seconds = EyeAdaptSettings.Get().FullAdaptSeconds;
+		float seconds = EyeAdaptSettings.GetFullAdaptSeconds();
 		float restored = 1;
 		if (seconds > 0)
 			restored = 1 - (1 - rec.Adaptation) * Math.Pow(Math.EULER, -3 * offline / seconds);

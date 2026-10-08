@@ -64,6 +64,8 @@ modded class MissionGameplay
 		if (EyeAdaptSettings.Get().DebugKeys)
 			UpdateEyeAdaptDebugKeys(player);
 
+		EyeAdaptNightClock.Update(timeslice);
+
 		// Light scan every SCAN_INTERVAL, adaptation smooths in between
 		m_EyeAdaptScanTimer += timeslice;
 		if (m_EyeAdaptScanTimer >= EyeAdaptSettings.Get().ScanInterval)

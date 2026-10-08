@@ -13,6 +13,9 @@ rem Admin access: Steam64 ID in %SERVER%\profiles\VPPAdminTools\Permissions\Supe
 set ADMIN=1
 set WORKSHOP=%DAYZ%\!Workshop
 
+rem Server config: serverDZ.cfg (real time) or serverDZ_fasttime.cfg (12x day, 48x night, for testing AdaptationMode "relativeToNight")
+set SERVERCFG=serverDZ_fasttime.cfg
+
 taskkill /F /IM DayZServer_x64.exe /T >nul 2>&1
 taskkill /F /IM DayZ_x64.exe /T >nul 2>&1
 taskkill /F /IM DayZ_BE.exe /T >nul 2>&1
@@ -31,7 +34,7 @@ if "%ADMIN%"=="1" (
 )
 
 cd /d "%SERVER%"
-start "" DayZServer_x64.exe -config=serverDZ.cfg -port=2302 -profiles=profiles "-mod=%SERVERMODS%" -doLogs -adminLog
+start "" DayZServer_x64.exe -config=%SERVERCFG% -port=2302 -profiles=profiles "-mod=%SERVERMODS%" -doLogs -adminLog
 rem Server is ready after ~22 s, the client needs ~40 s (BattlEye + engine init) before it connects,
 rem so both can start almost together. Raise this if the client fails to connect.
 timeout /t 3

@@ -6,12 +6,21 @@
 // Bump CURRENT_VERSION (and the Version default) whenever fields are added, so existing files get the new keys.
 class EyeAdaptSettings
 {
-	static const int CURRENT_VERSION = 8;
-	int Version = 8;
+	static const int CURRENT_VERSION = 9;
+	int Version = 9;
 	bool Enabled = true;
 
-	// Adaptation curve: fast stage (pupil/cones) + slow stage (rods), each ~95 % after its time
-	float FullAdaptSeconds = 240.0;        // slow stage. Brief: 300-600 for release
+	// Adaptation curve: fast stage (pupil/cones) + slow stage (rods), each ~95 % after its time.
+	// How long full adaptation takes (slow stage):
+	//   AdaptationMode "fixed":           FullAdaptSeconds
+	//   AdaptationMode "relativeToNight": FullAdaptNightFraction of the night's real length, measured by the mod
+	//                                     (covers serverTimeAcceleration and serverNightTimeAcceleration),
+	//                                     clamped to AdaptMinSeconds..AdaptMaxSeconds. FullAdaptSeconds until measured
+	string AdaptationMode = "fixed";
+	float FullAdaptSeconds = 240.0;        // brief: 300-600 for release
+	float FullAdaptNightFraction = 0.2;    // share of the WHOLE night length (sunset to sunrise), not of the time left. 0.2 = 20 %
+	float AdaptMinSeconds = 60.0;
+	float AdaptMaxSeconds = 900.0;
 	float FastCurveSeconds = 20.0;
 	float FastCurveWeight = 0.3;           // share of the gain from the fast stage (0..1)
 	float StartAdaptation = 1.0;           // fresh characters and players without a saved record ("you were sleeping")
@@ -94,6 +103,20 @@ class EyeAdaptSettings
 	bool DebugKeys = true;
 
 	// ---- Static access ----
+
+	// Effective full adaptation time in seconds, depending on AdaptationMode
+	static float GetFullAdaptSeconds()
+	{
+		EyeAdaptSettings cfg = Get();
+		if (cfg.AdaptationMode != "relativeToNight")
+			return cfg.FullAdaptSeconds;
+
+		float night = EyeAdaptNightClock.GetNightRealSeconds();
+		if (night <= 0)
+			return cfg.FullAdaptSeconds; // not measured yet
+
+		return Math.Clamp(night * cfg.FullAdaptNightFraction, cfg.AdaptMinSeconds, cfg.AdaptMaxSeconds);
+	}
 
 	protected static ref EyeAdaptSettings s_Instance;
 
