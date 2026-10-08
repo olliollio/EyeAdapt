@@ -14,7 +14,7 @@ set ADMIN=1
 set WORKSHOP=%DAYZ%\!Workshop
 
 rem Server config: serverDZ.cfg (real time) or serverDZ_fasttime.cfg (12x day, 48x night, for testing AdaptationMode "relativeToNight")
-set SERVERCFG=serverDZ_fasttime.cfg
+set SERVERCFG=serverDZ.cfg
 
 taskkill /F /IM DayZServer_x64.exe /T >nul 2>&1
 taskkill /F /IM DayZ_x64.exe /T >nul 2>&1
