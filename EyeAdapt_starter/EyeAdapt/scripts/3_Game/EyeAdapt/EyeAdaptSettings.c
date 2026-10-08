@@ -6,8 +6,8 @@
 // Bump CURRENT_VERSION (and the Version default) whenever fields are added, so existing files get the new keys.
 class EyeAdaptSettings
 {
-	static const int CURRENT_VERSION = 2;
-	int Version = 2;
+	static const int CURRENT_VERSION = 5;
+	int Version = 5;
 	bool Enabled = true;
 
 	// Adaptation curve: fast stage (pupil/cones) + slow stage (rods), each ~95 % after its time
@@ -16,7 +16,7 @@ class EyeAdaptSettings
 	float FastCurveWeight = 0.3;           // share of the gain from the fast stage (0..1)
 	float StartAdaptation = 1.0;           // fresh characters and players without a saved record ("you were sleeping")
 	float LightFastSeconds = 2.0;          // fast stage drops this fast under light
-	float LightSlowSeconds = 30.0;         // slow stage drops this fast under light
+	float LightSlowSeconds = 8.0;          // slow stage drops this fast under light (30 s left the scene overexposed at the fire for too long)
 	float ReportIntervalSeconds = 15.0;    // client reports its adaptation to the server this often (saved on logout)
 	float SaveIntervalSeconds = 120.0;     // server writes all online players' records this often (crash safety), 0 = only on logout
 
@@ -55,9 +55,24 @@ class EyeAdaptSettings
 
 	// Visuals at full adaptation
 	float MaxEvBoost = 5.0;                // EV stops under a clear full moon
-	float MaxDesaturation = 0.6;
+	float MaxDesaturation = 0.6;           // in the dark. Near light colour returns (cones take over), scaled down by the light dose
+	float ColorReturnSmoothSeconds = 0.5;  // smoothing of the colour return (the light scan runs every ScanInterval)
 	float MaxContrastBoost = 0.15;         // counters the grey/foggy look of a strong EV boost
 	float BlueShift = 0.1;                 // Purkinje effect, 0 = off
+
+	// Glare: dark-adapted eyes facing sudden bright light (CLAUDE.md §3.4). Strength = how far the adaptation
+	// still lags behind the light in the view centre, so it scales with how adapted you were and fades as the
+	// eyes catch up (LightFastSeconds/LightSlowSeconds). Values below are at full glare, scaled by GlareStrength
+	float GlareStrength = 1.0;             // overall scale (0 = off)
+	float GlareViewPower = 8.0;            // how centred the light must be: cos^power, 8 = half at ~30 degrees off centre
+	float GlareBloomIntensity = 2.0;       // added to the bloom intensity (halo around bright light, engine max 4)
+	float GlareBloomThresholdDrop = 0.3;   // bloom threshold lowered by this (more of the image blooms)
+	float BloomBaseIntensity = 0.75;       // vanilla glow.emat values the boost is added to (no getter in the engine)
+	float BloomBaseThreshold = 0.5;
+	float GlareEvBoost = 1.5;              // extra EV stops (overexposure, blows out the light source)
+	float GlareContrastLoss = 0.1;         // contrast reduction (detail loss). 0.25 looked milky
+	float GlareOverlay = 0.05;             // white veil (flashbang uses up to 1.0). Looked like fog at 0.35
+	float GlareSmoothSeconds = 0.15;       // fade-in/out smoothing of the glare
 
 	// Numpad debug keys (set adaptation, toggle effect, print lights). Lets players cheat, switch off on live servers
 	bool DebugKeys = true;

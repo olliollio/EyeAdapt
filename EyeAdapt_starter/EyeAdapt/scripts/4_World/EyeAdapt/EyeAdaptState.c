@@ -27,6 +27,12 @@ class EyeAdaptState
 		return w * m_Fast + (1 - w) * m_Slow;
 	}
 
+	// Fast stage alone (pupil/cones): drops within LightFastSeconds under light, drives the glare
+	float GetFast()
+	{
+		return m_Fast;
+	}
+
 	void Set(float value)
 	{
 		m_Fast = Math.Clamp(value, 0, 1);

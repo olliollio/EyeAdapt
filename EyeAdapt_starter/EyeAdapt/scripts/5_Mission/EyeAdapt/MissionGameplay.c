@@ -10,6 +10,10 @@ modded class MissionGameplay
 	protected float m_EyeAdaptNight;  // night gate 0 (day) .. 1 (night)
 	protected float m_EyeAdaptAmbient = 1;       // share of the max EV boost the sky allows (moon/overcast/underground), smoothed
 	protected float m_EyeAdaptAmbientTarget = 1; // latest value from the scan
+	protected float m_EyeAdaptGlare;             // 0..GlareStrength, smoothed
+	protected float m_EyeAdaptGlarePeak;         // highest glare since the last log line (glare is shorter than the log interval)
+	protected bool m_EyeAdaptGlareTest;          // debug: force full glare
+	protected float m_EyeAdaptColorDose;         // light dose smoothed for the colour return
 	protected float m_EyeAdaptLogTimer;
 	protected bool m_EyeAdaptNightVision; // powered NVG/NV scope in use: counts as light (NIGHT_VISION_DOSE)
 
@@ -36,7 +40,11 @@ modded class MissionGameplay
 		// Only tick while a living local player exists (not on loading/death screens)
 		PlayerBase player = PlayerBase.Cast(GetGame().GetPlayer());
 		if (!player || !player.IsAlive())
+		{
+			// Bloom lives on the material, not in a PPE requester, so vanilla's death reset doesn't cover it
+			EyeAdaptBloom.Reset();
 			return;
+		}
 
 		// Value restored by the server after login (offline time counted as darkness)
 		if (EyeAdaptClient.s_PendingRestore >= 0)
@@ -82,6 +90,11 @@ modded class MissionGameplay
 		float k = Math.Clamp(timeslice / EyeAdaptSettings.Get().AmbientSmoothSeconds, 0, 1);
 		m_EyeAdaptAmbient += (m_EyeAdaptAmbientTarget - m_EyeAdaptAmbient) * k;
 		m_EyeAdaptNight = EyeAdaptEnvironment.GetNightFactor();
+		// Colour returns near light: smooth the dose so saturation doesn't step with each scan
+		float colorK = Math.Clamp(timeslice / Math.Max(EyeAdaptSettings.Get().ColorReturnSmoothSeconds, 0.01), 0, 1);
+		m_EyeAdaptColorDose += (m_EyeAdaptDose.Get() - m_EyeAdaptColorDose) * colorK;
+
+		UpdateEyeAdaptGlare(timeslice);
 		ApplyEyeAdaptVisuals();
 
 		m_EyeAdaptLogTimer += timeslice;
@@ -91,9 +104,10 @@ modded class MissionGameplay
 			Print(string.Format("[EyeAdapt] adaptation %1 | dose %2 | strongest %3 (%4) | lights %5 | night %6 | boost %7 EV | bypass %8 | daytime %9",
 				m_EyeAdapt.Get(), m_EyeAdaptDose.Get(), m_EyeAdaptDose.GetStrongestName(), m_EyeAdaptDose.GetStrongestDose(),
 				m_EyeAdaptDose.GetLightCount(), m_EyeAdaptNight, GetEyeAdaptEVBoost(), m_EyeAdaptBypass, g_Game.GetDayTime()));
-			Print(string.Format("[EyeAdapt] env | moon raw %1 | moon light %2 | overcast %3 | sky light %4 | ambient gain %5 | underground %6 | NV type %7 (active %8)",
+			Print(string.Format("[EyeAdapt] env | moon raw %1 | moon light %2 | overcast %3 | sky light %4 | ambient gain %5 | underground %6 | NV type %7 (active %8) | glare peak %9",
 				EyeAdaptEnvironment.GetMoonIntensityRaw(), EyeAdaptEnvironment.GetMoonLight(), EyeAdaptEnvironment.GetOvercast(),
-				EyeAdaptEnvironment.GetSkyLight(), m_EyeAdaptAmbient, player.m_UndergroundPresence, player.GetNVType(), m_EyeAdaptNightVision));
+				EyeAdaptEnvironment.GetSkyLight(), m_EyeAdaptAmbient, player.m_UndergroundPresence, player.GetNVType(), m_EyeAdaptNightVision, m_EyeAdaptGlarePeak));
+			m_EyeAdaptGlarePeak = 0;
 		}
 	}
 
@@ -124,15 +138,55 @@ modded class MissionGameplay
 		if (!m_EyeAdaptPPE.IsRequesterRunning())
 			m_EyeAdaptPPE.Start();
 
+		EyeAdaptSettings cfg = EyeAdaptSettings.Get();
 		float s = GetEyeAdaptStrength();
-		float saturation = 1 - s * EyeAdaptSettings.Get().MaxDesaturation;
-		float contrast = 1 + s * m_EyeAdaptAmbient * EyeAdaptSettings.Get().MaxContrastBoost; // counters the haze of the EV boost, so it scales with it
+		// Rods see grey, but near light the cones take over and colour returns (CLAUDE.md §3.5)
+		float rodVision = s * (1 - m_EyeAdaptColorDose);
+		float saturation = 1 - rodVision * cfg.MaxDesaturation;
+		float contrast = 1 + s * m_EyeAdaptAmbient * cfg.MaxContrastBoost; // counters the haze of the EV boost, so it scales with it
 
 		// Blue shift: keep blue, pull red down fully and green halfway
-		float shift = s * EyeAdaptSettings.Get().BlueShift;
+		float shift = rodVision * cfg.BlueShift;
 		vector tint = Vector(1 - shift, 1 - shift * 0.5, 1);
 
-		m_EyeAdaptPPE.Apply(GetEyeAdaptEVBoost(), saturation, contrast, tint);
+		// Glare: overexposure, white haze and lost detail on top
+		float ev = GetEyeAdaptEVBoost() + m_EyeAdaptGlare * cfg.GlareEvBoost;
+		contrast -= m_EyeAdaptGlare * cfg.GlareContrastLoss;
+		float overlay = m_EyeAdaptGlare * cfg.GlareOverlay;
+
+		m_EyeAdaptPPE.Apply(ev, saturation, contrast, tint, overlay);
+	}
+
+	// Glare = how far the adaptation still lags behind the light in the view centre.
+	// Only dark-adapted eyes get it, and it fades within a few seconds as the eyes catch up
+	// (LightFastSeconds/LightSlowSeconds), so a flashlight to the face is a short dazzle, not a free flashbang
+	protected void UpdateEyeAdaptGlare(float timeslice)
+	{
+		EyeAdaptSettings cfg = EyeAdaptSettings.Get();
+		float target = 0;
+		if (!m_EyeAdaptBypass && cfg.Enabled && !m_EyeAdaptNightVision)
+		{
+			float lag = m_EyeAdapt.Get() - (1 - m_EyeAdaptDose.GetGlareDose());
+			target = Math.Clamp(lag, 0, 1) * cfg.GlareStrength * m_EyeAdaptNight;
+		}
+		if (m_EyeAdaptGlareTest)
+			target = cfg.GlareStrength;
+
+		float k = 1;
+		if (cfg.GlareSmoothSeconds > 0)
+			k = Math.Clamp(timeslice / cfg.GlareSmoothSeconds, 0, 1);
+		m_EyeAdaptGlare += (target - m_EyeAdaptGlare) * k;
+		m_EyeAdaptGlarePeak = Math.Max(m_EyeAdaptGlarePeak, m_EyeAdaptGlare);
+
+		// Halo around bright light, set on the glow material directly (see EyeAdaptBloom)
+		EyeAdaptBloom.Apply(m_EyeAdaptGlare);
+	}
+
+	override void OnMissionFinish()
+	{
+		// Material changes outlive the mission, so give the glow material its own bloom back
+		EyeAdaptBloom.Reset();
+		super.OnMissionFinish();
 	}
 
 	// Server started our logout countdown: send one final report so the saved value is current
@@ -170,6 +224,15 @@ modded class MissionGameplay
 				player.MessageImportant("[EyeAdapt] effect OFF (vanilla)");
 			else
 				player.MessageImportant("[EyeAdapt] effect ON");
+		}
+
+		if (EyeAdaptKeyPressed(EyeAdaptConfig.KEY_GLARE_TEST))
+		{
+			m_EyeAdaptGlareTest = !m_EyeAdaptGlareTest;
+			if (m_EyeAdaptGlareTest)
+				player.MessageImportant("[EyeAdapt] glare test ON (full glare)");
+			else
+				player.MessageImportant("[EyeAdapt] glare test OFF");
 		}
 
 		if (EyeAdaptKeyPressed(EyeAdaptConfig.KEY_LIGHTS))
