@@ -25,6 +25,9 @@ class EyeAdaptConfig
 	static const float OWN_LIGHT_FACTOR = 0.1;      // own SPOT light (flashlight/headtorch/weapon light): this share of its brightness. Not free.
 	                                                // Own point lights (torch, chemlight, gas lamp) count fully by distance, like on the ground
 	static const float RED_LIGHT_FACTOR = 0.15;     // red light barely affects night vision
+	static const bool  USE_OCCLUSION = true;        // raycast eye -> light, only for lights that would count
+	static const float OCCLUDED_FACTOR = 0.15;      // blocked light still counts this much (indirect light around a wall/corner)
+	static const float OCCLUSION_END_OFFSET = 0.5;  // ray stops this far before the light so the fireplace/lamp model can't block it
 
 	// ---- Night gate (design rule 1: night only, day stays vanilla) ----
 	// Sunrise/sunset come from the map's WorldData. Vanilla Chernarus in July: sunrise ~4.0 h, sunset ~20.0 h,
