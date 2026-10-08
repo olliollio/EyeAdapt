@@ -114,7 +114,7 @@ Cross-check with `IsNight()` and `GetSunOrMoon()` in a debug log during phase 4.
 ## 2. Moon [V API, U semantics]
 
 - Only `World.GetMoonIntensity()` and `World.GetSunOrMoon()` exist. No moon phase, moon altitude or moon position getter anywhere in `P:\scripts` (grep "moon": only the two natives + server-browser icons).
-- `GetMoonIntensity()` is **not used anywhere** by vanilla script. Expected (Arma heritage, `moonIntensity`) to combine phase and altitude, 0..1. [U: log it over several nights; compare full vs. new moon by `SetDate` on a local server]
+- `GetMoonIntensity()` is **not used anywhere** by vanilla script. **In-game (2026-10-08, Chernarus, 22:30, client):** real moon phases are simulated. 28 Sep 2015 (full moon) = **0.95**, 13 Sep 2015 (new moon) = **0**. Range is 0..1, so no calibration needed. Constant over a few minutes. Not affected by overcast (overcast must be handled separately). [U: whether it also drops with moon altitude/moonrise]
 - The date is settable (`World.SetDate`, `SetTimeMultiplier`) on a local test server, which helps to sweep moon phases for testing.
 
 ---
