@@ -6,6 +6,8 @@ class EyeAdaptLightDose
 	protected float m_Dose;
 	// Same, but only light close to the view centre counts (drives the glare), 0..1
 	protected float m_GlareDose;
+	// Strongest single foreign spot light (someone else's flashlight/headtorch/headlights) in the face, raw, for the optional dazzle
+	protected float m_DazzleLight;
 
 	// Debug info of the last scan
 	protected string m_StrongestName;
@@ -20,6 +22,11 @@ class EyeAdaptLightDose
 	float GetGlareDose()
 	{
 		return m_GlareDose;
+	}
+
+	float GetDazzleLight()
+	{
+		return m_DazzleLight;
 	}
 
 	string GetStrongestName()
@@ -46,6 +53,7 @@ class EyeAdaptLightDose
 
 		float total = 0;
 		float glareTotal = 0;
+		m_DazzleLight = 0;
 		m_StrongestName = "";
 		m_StrongestDose = 0;
 
@@ -60,12 +68,15 @@ class EyeAdaptLightDose
 			}
 
 			float glare;
-			float d = GetLightDose(light, eyePos, eyeDir, player, verbose, glare);
+			bool foreignSpot;
+			float d = GetLightDose(light, eyePos, eyeDir, player, verbose, glare, foreignSpot);
 			if (d <= 0)
 				continue;
 
 			total += d;
 			glareTotal += glare;
+			if (foreignSpot)
+				m_DazzleLight = Math.Max(m_DazzleLight, glare);
 			if (d > m_StrongestDose)
 			{
 				m_StrongestDose = d;
@@ -82,10 +93,12 @@ class EyeAdaptLightDose
 			Print(string.Format("[EyeAdapt] scan: %1 lights registered | raw dose %2 | saturated %3 | glare dose %4", m_LightCount, total, m_Dose, m_GlareDose));
 	}
 
-	// Returns the light's dose. glare = the same light weighted by how centred it is in view (0 for own spot lights)
-	protected float GetLightDose(ScriptedLightBase light, vector eyePos, vector eyeDir, Object player, bool verbose, out float glare)
+	// Returns the light's dose. glare = the same light weighted by how centred it is in view (0 for own spot lights).
+	// foreignSpot = someone else's spot light whose beam points at us
+	protected float GetLightDose(ScriptedLightBase light, vector eyePos, vector eyeDir, Object player, bool verbose, out float glare, out bool foreignSpot)
 	{
 		glare = 0;
+		foreignSpot = false;
 		if (!light.IsEnabled())
 			return 0;
 
@@ -163,6 +176,8 @@ class EyeAdaptLightDose
 				glare = 0;
 			}
 		}
+
+		foreignSpot = isSpot && !isOwnSpot && glare > 0;
 
 		if (verbose)
 			Print(string.Format("[EyeAdapt]   %1 | dose %2 | brightness %3 | radius %4 | spot %5 | own %6 | blocked by '%7'", light.ClassName(), d, light.m_Brightness, light.m_Radius, isSpot, IsOwnLight(light, player), blocker));

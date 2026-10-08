@@ -1,14 +1,17 @@
 // 3_Game: bloom boost for the glare, set directly on the glow material instead of through PPE.
 // PPEGlow registers BloomIntensity/BloomThreshold with defaults that don't match glow.emat (1 vs 0.75, docs/engine/ppe.md §2.2),
-// so releasing them through PPE would leave the wrong bloom behind. Material.ResetParam restores the material's own value
-// instead, which also keeps lighting mods that edit glow.emat intact.
+// so going through PPE would leave the wrong bloom behind.
+// In game: the values are written every frame while glaring. Material.ResetParam must NOT be used: after a reset the
+// engine ignored further SetParam calls for that parameter (glow worked once, then never again). So when the glare ends
+// the configured base values are written back instead (vanilla glow.emat 0.75 / 0.5, admins with a lighting mod can
+// set BloomBaseIntensity/BloomBaseThreshold to that mod's values).
 class EyeAdaptBloom
 {
 
 	protected static Material s_Material;
 	protected static bool s_Active;
 
-	// glare 0..1. 0 restores the material's own bloom
+	// glare 0..1. 0 writes the base bloom back
 	static void Apply(float glare)
 	{
 		// Use the exact material object the PPE manager renders with (a path spelled differently may give another instance)
@@ -32,8 +35,7 @@ class EyeAdaptBloom
 		float intensity = Math.Clamp(cfg.BloomBaseIntensity + glare * cfg.GlareBloomIntensity, 0, 4);
 		float threshold = Math.Clamp(cfg.BloomBaseThreshold - glare * cfg.GlareBloomThresholdDrop, 0, 1);
 
-		// Written every frame: a one-time SetParam was accepted (returns true) but had no visible effect,
-		// so the engine probably refreshes the glow pass from its own values each frame
+		// Written every frame while glaring (cheap, and safe if the engine refreshes the glow pass itself)
 		bool first = !s_Active;
 		bool okIntensity = s_Material.SetParam("BloomIntensity", intensity);
 		bool okThreshold = s_Material.SetParam("BloomThreshold", threshold);
@@ -42,6 +44,7 @@ class EyeAdaptBloom
 		s_Active = true;
 	}
 
+	// Glare over: write the base values back (no ResetParam, see top)
 	static void Reset()
 	{
 		if (!s_Active)
@@ -49,8 +52,9 @@ class EyeAdaptBloom
 
 		if (s_Material != 0x0)
 		{
-			s_Material.ResetParam("BloomIntensity");
-			s_Material.ResetParam("BloomThreshold");
+			EyeAdaptSettings cfg = EyeAdaptSettings.Get();
+			s_Material.SetParam("BloomIntensity", cfg.BloomBaseIntensity);
+			s_Material.SetParam("BloomThreshold", cfg.BloomBaseThreshold);
 		}
 		s_Active = false;
 	}

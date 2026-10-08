@@ -10,9 +10,16 @@ modded class MissionGameplay
 	protected float m_EyeAdaptNight;  // night gate 0 (day) .. 1 (night)
 	protected float m_EyeAdaptAmbient = 1;       // share of the max EV boost the sky allows (moon/overcast/underground), smoothed
 	protected float m_EyeAdaptAmbientTarget = 1; // latest value from the scan
-	protected float m_EyeAdaptGlare;             // 0..GlareStrength, smoothed
+	protected float m_EyeAdaptGlare;             // glare phase 1 (blowout envelope), 0..GlareStrength
+	protected float m_EyeAdaptGlareLevel;        // strength of the running blowout (set when it starts)
+	protected float m_EyeAdaptGlareTime = -1;    // seconds since the blowout started, -1 = none
+	protected float m_EyeAdaptGlareCooldown;     // seconds left until the next blowout can start
+	protected float m_EyeAdaptGlow;              // glare phase 2 (bloom halo fading out), 0..GlareStrength
 	protected float m_EyeAdaptGlarePeak;         // highest glare since the last log line (glare is shorter than the log interval)
 	protected bool m_EyeAdaptGlareTest;          // debug: force full glare
+	protected float m_EyeAdaptDazzle;            // optional flashlight dazzle, 0..1
+	protected float m_EyeAdaptDazzleTime = -1;   // seconds since the dazzle started, -1 = none
+	protected float m_EyeAdaptDazzleCooldown;    // seconds left until the next dazzle can start
 	protected float m_EyeAdaptColorDose;         // light dose smoothed for the colour return
 	protected float m_EyeAdaptLogTimer;
 	protected bool m_EyeAdaptNightVision; // powered NVG/NV scope in use: counts as light (NIGHT_VISION_DOSE)
@@ -95,6 +102,7 @@ modded class MissionGameplay
 		m_EyeAdaptColorDose += (m_EyeAdaptDose.Get() - m_EyeAdaptColorDose) * colorK;
 
 		UpdateEyeAdaptGlare(timeslice);
+		UpdateEyeAdaptDazzle(timeslice);
 		ApplyEyeAdaptVisuals();
 
 		m_EyeAdaptLogTimer += timeslice;
@@ -149,37 +157,134 @@ modded class MissionGameplay
 		float shift = rodVision * cfg.BlueShift;
 		vector tint = Vector(1 - shift, 1 - shift * 0.5, 1);
 
-		// Glare: overexposure, white haze and lost detail on top
+		// Glare blowout: hard overexposure, white-out and lost detail on top
 		float ev = GetEyeAdaptEVBoost() + m_EyeAdaptGlare * cfg.GlareEvBoost;
 		contrast -= m_EyeAdaptGlare * cfg.GlareContrastLoss;
 		float overlay = m_EyeAdaptGlare * cfg.GlareOverlay;
 
+		// Optional flashlight dazzle: flashbang-like white-out on top
+		ev += m_EyeAdaptDazzle * cfg.DazzleEvBoost;
+		overlay = Math.Max(overlay, m_EyeAdaptDazzle * cfg.DazzleOverlay);
+
 		m_EyeAdaptPPE.Apply(ev, saturation, contrast, tint, overlay);
 	}
 
-	// Glare = how far the adaptation still lags behind the light in the view centre.
-	// Only dark-adapted eyes get it, and it fades within a few seconds as the eyes catch up
-	// (LightFastSeconds/LightSlowSeconds), so a flashlight to the face is a short dazzle, not a free flashbang
+	// Glare in two phases (CLAUDE.md §3.4), both only for dark-adapted eyes facing light in the view centre:
+	// 1. Blowout: starts when the adaptation lags far enough behind the light (GlareTriggerLevel).
+	//    Fully blown out for GlareHoldSeconds, then fades over GlareFadeSeconds. Strength = the lag at the start,
+	//    so fully adapted = full white-out, half adapted = half. GlareCooldownSeconds prevents a strobe.
+	//    Uses the whole adaptation, not only the fast stage: the pupil alone closes within a second from any light
+	//    nearby, which made the blowout depend on how quickly you turned around.
+	// 2. Glow: how far the whole adaptation lags behind. Bloom halo that fades slowly (GlowFadeSeconds)
+	//    while the eyes adapt.
 	protected void UpdateEyeAdaptGlare(float timeslice)
 	{
 		EyeAdaptSettings cfg = EyeAdaptSettings.Get();
-		float target = 0;
+		float flashTarget = 0;
+		float glowTarget = 0;
 		if (!m_EyeAdaptBypass && cfg.Enabled && !m_EyeAdaptNightVision)
 		{
-			float lag = m_EyeAdapt.Get() - (1 - m_EyeAdaptDose.GetGlareDose());
-			target = Math.Clamp(lag, 0, 1) * cfg.GlareStrength * m_EyeAdaptNight;
+			float lightLevel = 1 - m_EyeAdaptDose.GetGlareDose();
+			float scale = cfg.GlareStrength * m_EyeAdaptNight;
+			glowTarget = Math.Clamp(m_EyeAdapt.Get() - lightLevel, 0, 1) * scale;
+			flashTarget = glowTarget;
 		}
 		if (m_EyeAdaptGlareTest)
-			target = cfg.GlareStrength;
+		{
+			flashTarget = cfg.GlareStrength;
+			glowTarget = cfg.GlareStrength;
+		}
 
+		// Blowout envelope: hold, fade, cooldown
+		if (m_EyeAdaptGlareCooldown > 0)
+			m_EyeAdaptGlareCooldown -= timeslice;
+
+		if (m_EyeAdaptGlareTime >= 0)
+		{
+			m_EyeAdaptGlareTime += timeslice;
+			float fadeTime = m_EyeAdaptGlareTime - cfg.GlareHoldSeconds;
+			if (fadeTime <= 0)
+			{
+				m_EyeAdaptGlare = m_EyeAdaptGlareLevel;
+			}
+			else if (cfg.GlareFadeSeconds > 0 && fadeTime < cfg.GlareFadeSeconds)
+			{
+				m_EyeAdaptGlare = m_EyeAdaptGlareLevel * (1 - fadeTime / cfg.GlareFadeSeconds);
+			}
+			else
+			{
+				m_EyeAdaptGlare = 0;
+				m_EyeAdaptGlareTime = -1;
+				m_EyeAdaptGlareCooldown = cfg.GlareCooldownSeconds;
+			}
+		}
+		else if (m_EyeAdaptGlareCooldown <= 0 && flashTarget >= cfg.GlareTriggerLevel)
+		{
+			m_EyeAdaptGlareTime = 0;
+			m_EyeAdaptGlareLevel = Math.Clamp(flashTarget, 0, 1);
+			m_EyeAdaptGlare = m_EyeAdaptGlareLevel;
+		}
+
+		// Glow attack smoothing
 		float k = 1;
 		if (cfg.GlareSmoothSeconds > 0)
 			k = Math.Clamp(timeslice / cfg.GlareSmoothSeconds, 0, 1);
-		m_EyeAdaptGlare += (target - m_EyeAdaptGlare) * k;
+
+		// Glow: quick in, slow out (~95 % gone after GlowFadeSeconds)
+		if (glowTarget >= m_EyeAdaptGlow)
+			m_EyeAdaptGlow += (glowTarget - m_EyeAdaptGlow) * k;
+		else if (cfg.GlowFadeSeconds > 0)
+			m_EyeAdaptGlow += (glowTarget - m_EyeAdaptGlow) * Math.Clamp(3 * timeslice / cfg.GlowFadeSeconds, 0, 1);
+		else
+			m_EyeAdaptGlow = glowTarget;
+
 		m_EyeAdaptGlarePeak = Math.Max(m_EyeAdaptGlarePeak, m_EyeAdaptGlare);
 
 		// Halo around bright light, set on the glow material directly (see EyeAdaptBloom)
-		EyeAdaptBloom.Apply(m_EyeAdaptGlare);
+		EyeAdaptBloom.Apply(m_EyeAdaptGlow);
+	}
+
+	// Optional (server setting FlashlightDazzle): someone else's spot light in the face at night acts like a short
+	// flashbang white-out. Full for DazzleHoldSeconds, fades over DazzleFadeSeconds, then DazzleCooldownSeconds immunity
+	protected void UpdateEyeAdaptDazzle(float timeslice)
+	{
+		EyeAdaptSettings cfg = EyeAdaptSettings.Get();
+		if (m_EyeAdaptDazzleCooldown > 0)
+			m_EyeAdaptDazzleCooldown -= timeslice;
+
+		if (m_EyeAdaptDazzleTime >= 0)
+		{
+			m_EyeAdaptDazzleTime += timeslice;
+			float fadeTime = m_EyeAdaptDazzleTime - cfg.DazzleHoldSeconds;
+			if (fadeTime <= 0)
+			{
+				m_EyeAdaptDazzle = 1;
+			}
+			else if (cfg.DazzleFadeSeconds > 0 && fadeTime < cfg.DazzleFadeSeconds)
+			{
+				m_EyeAdaptDazzle = 1 - fadeTime / cfg.DazzleFadeSeconds;
+			}
+			else
+			{
+				m_EyeAdaptDazzle = 0;
+				m_EyeAdaptDazzleTime = -1;
+				m_EyeAdaptDazzleCooldown = cfg.DazzleCooldownSeconds;
+			}
+			return;
+		}
+
+		m_EyeAdaptDazzle = 0;
+		if (!cfg.FlashlightDazzle || !cfg.Enabled || m_EyeAdaptBypass || m_EyeAdaptNightVision)
+			return;
+		if (m_EyeAdaptNight < 0.5 || m_EyeAdaptDazzleCooldown > 0)
+			return;
+
+		if (m_EyeAdaptDose.GetDazzleLight() >= cfg.DazzleThreshold)
+		{
+			m_EyeAdaptDazzleTime = 0;
+			m_EyeAdaptDazzle = 1;
+			Print(string.Format("[EyeAdapt] dazzled by a flashlight (beam %1)", m_EyeAdaptDose.GetDazzleLight()));
+		}
 	}
 
 	override void OnMissionFinish()

@@ -61,7 +61,7 @@ class PPERequester_EyeAdapt extends PPERequester_GameplayBase
 				SetTargetValueColor(PostProcessEffectType.Glow, PPEGlow.PARAM_COLORIZATIONCOLOR, {tint[0], tint[1], tint[2], 0.0}, L_TINT, PPOperators.MULTIPLICATIVE);
 		}
 
-		// Same building blocks as the flashbang white-out, just much softer: factor + white colour with alpha
+		// Same building blocks as the flashbang white-out: overlay factor + white overlay colour
 		overlay = Math.Round(Math.Clamp(overlay, 0, 1) * 200) / 200;
 		if (overlay != m_LastOverlay)
 		{
@@ -74,7 +74,8 @@ class PPERequester_EyeAdapt extends PPERequester_GameplayBase
 			else
 			{
 				SetTargetValueFloat(PostProcessEffectType.Glow, PPEGlow.PARAM_OVERLAYFACTOR, true, overlay, L_OVERLAY_F, PPOperators.HIGHEST);
-				SetTargetValueColor(PostProcessEffectType.Glow, PPEGlow.PARAM_OVERLAYCOLOR, {1.0, 1.0, 1.0, overlay}, L_OVERLAY_C, PPOperators.SET);
+				// Alpha stays 1: factor and alpha multiply, so scaling both made 0.6 look like 0.36
+				SetTargetValueColor(PostProcessEffectType.Glow, PPEGlow.PARAM_OVERLAYCOLOR, {1.0, 1.0, 1.0, 1.0}, L_OVERLAY_C, PPOperators.SET);
 			}
 		}
 	}

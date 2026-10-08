@@ -6,8 +6,8 @@
 // Bump CURRENT_VERSION (and the Version default) whenever fields are added, so existing files get the new keys.
 class EyeAdaptSettings
 {
-	static const int CURRENT_VERSION = 5;
-	int Version = 5;
+	static const int CURRENT_VERSION = 8;
+	int Version = 8;
 	bool Enabled = true;
 
 	// Adaptation curve: fast stage (pupil/cones) + slow stage (rods), each ~95 % after its time
@@ -21,7 +21,7 @@ class EyeAdaptSettings
 	float SaveIntervalSeconds = 120.0;     // server writes all online players' records this often (crash safety), 0 = only on logout
 
 	// Light exposure (dose)
-	float ScanInterval = 0.5;              // seconds between light scans
+	float ScanInterval = 0.25;             // seconds between light scans (0.5 made the glare start noticeably late)
 	float ScanRadius = 40.0;               // also limited by each light's own radius
 	float FalloffExponent = 1.3;           // 2 = physical inverse square, felt too short in game (campfire had no effect at 15 m).
 	                                       // With 1.3, looking at a campfire: 2 m -> dose ~0.98, 5 m ~0.7, 10 m ~0.4, 15 m ~0.25, 25 m ~0.13
@@ -60,19 +60,35 @@ class EyeAdaptSettings
 	float MaxContrastBoost = 0.15;         // counters the grey/foggy look of a strong EV boost
 	float BlueShift = 0.1;                 // Purkinje effect, 0 = off
 
-	// Glare: dark-adapted eyes facing sudden bright light (CLAUDE.md §3.4). Strength = how far the adaptation
-	// still lags behind the light in the view centre, so it scales with how adapted you were and fades as the
-	// eyes catch up (LightFastSeconds/LightSlowSeconds). Values below are at full glare, scaled by GlareStrength
+	// Glare: dark-adapted eyes facing sudden bright light (CLAUDE.md §3.4), in two phases:
+	// 1. blowout = fully blown out for GlareHoldSeconds, fades over GlareFadeSeconds: GlareEvBoost, GlareOverlay, GlareContrastLoss
+	// 2. glow = bloom halo that fades over GlowFadeSeconds while the eyes adapt: GlareBloom*
+	// Strength scales with how adapted you were. Values below are at full glare, scaled by GlareStrength
 	float GlareStrength = 1.0;             // overall scale (0 = off)
 	float GlareViewPower = 8.0;            // how centred the light must be: cos^power, 8 = half at ~30 degrees off centre
 	float GlareBloomIntensity = 2.0;       // added to the bloom intensity (halo around bright light, engine max 4)
 	float GlareBloomThresholdDrop = 0.3;   // bloom threshold lowered by this (more of the image blooms)
 	float BloomBaseIntensity = 0.75;       // vanilla glow.emat values the boost is added to (no getter in the engine)
 	float BloomBaseThreshold = 0.5;
-	float GlareEvBoost = 1.5;              // extra EV stops (overexposure, blows out the light source)
-	float GlareContrastLoss = 0.1;         // contrast reduction (detail loss). 0.25 looked milky
-	float GlareOverlay = 0.05;             // white veil (flashbang uses up to 1.0). Looked like fog at 0.35
+	float GlareTriggerLevel = 0.3;         // blowout starts when the adaptation lags this far behind the light in view (0..1)
+	float GlareHoldSeconds = 0.6;          // blowout: fully blown out ("hurts", you can't see much)
+	float GlareFadeSeconds = 1.0;          // blowout: fade into the glow phase
+	float GlareCooldownSeconds = 2.0;      // no new blowout right after one (no strobe when turning back and forth)
+	float GlowFadeSeconds = 6.0;           // glow phase: halo ~95 % gone after this
+	float GlareEvBoost = 6.0;              // blowout: extra EV stops
+	float GlareContrastLoss = 0.3;         // blowout: contrast reduction (detail loss)
+	float GlareOverlay = 1.0;              // blowout: white-out, linear (flashbang: 1.0)
 	float GlareSmoothSeconds = 0.15;       // fade-in/out smoothing of the glare
+
+	// Optional flashlight dazzle: someone else's flashlight/headtorch/headlights in your face at night acts like a
+	// short flashbang white-out (no sound). Off by default, server admins decide
+	bool FlashlightDazzle = false;
+	float DazzleThreshold = 0.3;           // how strong the beam in the face must be (flashlight centred: ~7 m with defaults)
+	float DazzleHoldSeconds = 1.0;         // full white-out (vanilla flashbang: ~5.5 s)
+	float DazzleFadeSeconds = 2.0;         // fade back to normal (vanilla flashbang: ~2.5 s)
+	float DazzleCooldownSeconds = 3.0;     // immune after a dazzle, so a lamp held on someone can't blind them permanently
+	float DazzleOverlay = 0.9;             // white-out strength (vanilla flashbang: 1.0)
+	float DazzleEvBoost = 5.0;             // extra EV stops at full dazzle
 
 	// Numpad debug keys (set adaptation, toggle effect, print lights). Lets players cheat, switch off on live servers
 	bool DebugKeys = true;
