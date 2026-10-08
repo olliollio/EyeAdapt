@@ -8,26 +8,47 @@ class EyeAdaptEnvironment
 	static float GetAmbientGain(PlayerBase player)
 	{
 		float ambient = GetSkyLight();
-		float gain = Math.Lerp(EyeAdaptConfig.MIN_AMBIENT_GAIN, 1, ambient);
+		float gain = Math.Lerp(EyeAdaptSettings.Get().MinAmbientGain, 1, ambient);
 
 		if (player && player.m_UndergroundPresence > EUndergroundPresence.OUTER)
-			gain *= EyeAdaptConfig.UNDERGROUND_GAIN;
+			gain *= EyeAdaptSettings.Get().UndergroundGain;
 		else if (player && player.m_UndergroundPresence == EUndergroundPresence.OUTER)
-			gain *= Math.Lerp(EyeAdaptConfig.UNDERGROUND_GAIN, 1, 0.5);
+			gain *= Math.Lerp(EyeAdaptSettings.Get().UndergroundGain, 1, 0.5);
 
 		return gain;
+	}
+
+	// True while the player looks through powered night vision (goggles or NV scope).
+	// The bright image costs dark adaptation (NIGHT_VISION_DOSE). Unpowered goggles (NV_GOGGLES_OFF)
+	// show almost nothing, so the eyes keep adapting to the dark.
+	static bool IsNightVisionActive(PlayerBase player)
+	{
+		if (!player)
+			return false;
+
+		switch (player.GetNVType())
+		{
+			case NVTypes.NV_GOGGLES:
+			case NVTypes.NV_GOGGLES_2D:
+			case NVTypes.NV_OPTICS_ON:
+			case NVTypes.NV_OPTICS_KAZUAR_NIGHT:
+			case NVTypes.NV_OPTICS_STARLIGHT_NIGHT:
+				return true;
+		}
+
+		return false;
 	}
 
 	// Natural night light 0..1 relative to a clear full-moon night
 	static float GetSkyLight()
 	{
 		// Moon: clear moonless sky still has starlight
-		float sky = Math.Lerp(EyeAdaptConfig.STARLIGHT_SHARE, 1, GetMoonLight());
+		float sky = Math.Lerp(EyeAdaptSettings.Get().StarlightShare, 1, GetMoonLight());
 
 		// Clouds: the engine blends clear (overcast 0.35) into fully overcast (1.0) lighting,
 		// and its fully overcast night has no moonlight at all
-		float clouds = Math.Clamp(Math.InverseLerp(EyeAdaptConfig.OVERCAST_CLEAR, EyeAdaptConfig.OVERCAST_FULL, GetOvercast()), 0, 1);
-		sky *= Math.Lerp(1, EyeAdaptConfig.OVERCAST_MIN_SHARE, clouds);
+		float clouds = Math.Clamp(Math.InverseLerp(EyeAdaptSettings.Get().OvercastClear, EyeAdaptSettings.Get().OvercastFull, GetOvercast()), 0, 1);
+		sky *= Math.Lerp(1, EyeAdaptSettings.Get().OvercastMinShare, clouds);
 
 		return sky;
 	}
@@ -35,10 +56,10 @@ class EyeAdaptEnvironment
 	// Moon light 0..1. Raw GetMoonIntensity() has no documented range, MOON_INTENSITY_FULL calibrates it (see log)
 	static float GetMoonLight()
 	{
-		if (EyeAdaptConfig.MOON_INTENSITY_FULL <= 0)
+		if (EyeAdaptSettings.Get().MoonIntensityFull <= 0)
 			return 0;
 
-		return Math.Clamp(GetMoonIntensityRaw() / EyeAdaptConfig.MOON_INTENSITY_FULL, 0, 1);
+		return Math.Clamp(GetMoonIntensityRaw() / EyeAdaptSettings.Get().MoonIntensityFull, 0, 1);
 	}
 
 	static float GetMoonIntensityRaw()
@@ -75,13 +96,13 @@ class EyeAdaptEnvironment
 		if (time >= noon)
 		{
 			// Evening: fade in after sunset
-			float duskStart = sunset + EyeAdaptConfig.DUSK_OFFSET_HOURS;
-			return SmoothStep((time - duskStart) / EyeAdaptConfig.DUSK_HOURS);
+			float duskStart = sunset + EyeAdaptSettings.Get().DuskOffsetHours;
+			return SmoothStep((time - duskStart) / EyeAdaptSettings.Get().DuskHours);
 		}
 
 		// Morning (after midnight): fade out towards sunrise
-		float dawnStart = sunrise + EyeAdaptConfig.DAWN_OFFSET_HOURS;
-		return 1 - SmoothStep((time - dawnStart) / EyeAdaptConfig.DAWN_HOURS);
+		float dawnStart = sunrise + EyeAdaptSettings.Get().DawnOffsetHours;
+		return 1 - SmoothStep((time - dawnStart) / EyeAdaptSettings.Get().DawnHours);
 	}
 
 	// Clamped 0..1 with eased ends, so the fade has no visible start/stop kink

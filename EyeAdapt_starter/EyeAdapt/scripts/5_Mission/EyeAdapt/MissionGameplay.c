@@ -10,6 +10,7 @@ modded class MissionGameplay
 	protected float m_EyeAdaptAmbient = 1;       // share of the max EV boost the sky allows (moon/overcast/underground), smoothed
 	protected float m_EyeAdaptAmbientTarget = 1; // latest value from the scan
 	protected float m_EyeAdaptLogTimer;
+	protected bool m_EyeAdaptNightVision; // powered NVG/NV scope in use: counts as light (NIGHT_VISION_DOSE)
 
 	override void OnInit()
 	{
@@ -36,24 +37,32 @@ modded class MissionGameplay
 		if (!player || !player.IsAlive())
 			return;
 
-		if (EyeAdaptConfig.DEBUG_KEYS)
+		if (EyeAdaptSettings.Get().DebugKeys)
 			UpdateEyeAdaptDebugKeys(player);
 
 		// Light scan every SCAN_INTERVAL, adaptation smooths in between
 		m_EyeAdaptScanTimer += timeslice;
-		if (m_EyeAdaptScanTimer >= EyeAdaptConfig.SCAN_INTERVAL)
+		if (m_EyeAdaptScanTimer >= EyeAdaptSettings.Get().ScanInterval)
 		{
 			m_EyeAdaptScanTimer = 0;
 			m_EyeAdaptDose.Scan();
 			m_EyeAdaptAmbientTarget = EyeAdaptEnvironment.GetAmbientGain(player);
 		}
 
-		// Adaptation keeps running by day (eyes keep pace through dusk), only the visuals are gated
-		float target = 1 - m_EyeAdaptDose.Get() * EyeAdaptConfig.MAX_DOSE_EFFECT;
+		// Adaptation keeps running by day (eyes keep pace through dusk), only the visuals are gated.
+		// Powered night vision puts a bright green screen in front of the eyes (green is what rods are most
+		// sensitive to), so it counts as light: after taking the goggles off you're partly night-blind.
+		// The visuals already step aside for night vision in the requester.
+		float dose = m_EyeAdaptDose.Get();
+		m_EyeAdaptNightVision = EyeAdaptEnvironment.IsNightVisionActive(player);
+		if (m_EyeAdaptNightVision)
+			dose = Math.Max(dose, EyeAdaptSettings.Get().NightVisionDose);
+
+		float target = 1 - dose * EyeAdaptSettings.Get().MaxDoseEffect;
 		m_EyeAdapt.Update(timeslice, target);
 
 		// Smooth the ambient gain so scan steps and underground state switches don't jump the brightness
-		float k = Math.Clamp(timeslice / EyeAdaptConfig.AMBIENT_SMOOTH_SECONDS, 0, 1);
+		float k = Math.Clamp(timeslice / EyeAdaptSettings.Get().AmbientSmoothSeconds, 0, 1);
 		m_EyeAdaptAmbient += (m_EyeAdaptAmbientTarget - m_EyeAdaptAmbient) * k;
 		m_EyeAdaptNight = EyeAdaptEnvironment.GetNightFactor();
 		ApplyEyeAdaptVisuals();
@@ -65,9 +74,9 @@ modded class MissionGameplay
 			Print(string.Format("[EyeAdapt] adaptation %1 | dose %2 | strongest %3 (%4) | lights %5 | night %6 | boost %7 EV | bypass %8 | daytime %9",
 				m_EyeAdapt.Get(), m_EyeAdaptDose.Get(), m_EyeAdaptDose.GetStrongestName(), m_EyeAdaptDose.GetStrongestDose(),
 				m_EyeAdaptDose.GetLightCount(), m_EyeAdaptNight, GetEyeAdaptEVBoost(), m_EyeAdaptBypass, g_Game.GetDayTime()));
-			Print(string.Format("[EyeAdapt] env | moon raw %1 | moon light %2 | overcast %3 | sky light %4 | ambient gain %5 | underground %6",
+			Print(string.Format("[EyeAdapt] env | moon raw %1 | moon light %2 | overcast %3 | sky light %4 | ambient gain %5 | underground %6 | NV type %7 (active %8)",
 				EyeAdaptEnvironment.GetMoonIntensityRaw(), EyeAdaptEnvironment.GetMoonLight(), EyeAdaptEnvironment.GetOvercast(),
-				EyeAdaptEnvironment.GetSkyLight(), m_EyeAdaptAmbient, player.m_UndergroundPresence));
+				EyeAdaptEnvironment.GetSkyLight(), m_EyeAdaptAmbient, player.m_UndergroundPresence, player.GetNVType(), m_EyeAdaptNightVision));
 		}
 	}
 
@@ -75,7 +84,8 @@ modded class MissionGameplay
 	// only resend when a value visibly changes (EV steps of ~0.01).
 	protected float GetEyeAdaptStrength()
 	{
-		if (m_EyeAdaptBypass)
+		// Disabled by the server or switched off with the debug key: all PPE values get released
+		if (m_EyeAdaptBypass || !EyeAdaptSettings.Get().Enabled)
 			return 0;
 
 		return Math.Round(m_EyeAdapt.Get() * m_EyeAdaptNight * 500) / 500;
@@ -85,7 +95,7 @@ modded class MissionGameplay
 	// fully adapted eyes see in grey even on the darkest night
 	protected float GetEyeAdaptEVBoost()
 	{
-		return GetEyeAdaptStrength() * m_EyeAdaptAmbient * EyeAdaptConfig.MAX_EV_BOOST;
+		return GetEyeAdaptStrength() * m_EyeAdaptAmbient * EyeAdaptSettings.Get().MaxEvBoost;
 	}
 
 	protected void ApplyEyeAdaptVisuals()
@@ -98,11 +108,11 @@ modded class MissionGameplay
 			m_EyeAdaptPPE.Start();
 
 		float s = GetEyeAdaptStrength();
-		float saturation = 1 - s * EyeAdaptConfig.MAX_DESATURATION;
-		float contrast = 1 + s * m_EyeAdaptAmbient * EyeAdaptConfig.MAX_CONTRAST_BOOST; // counters the haze of the EV boost, so it scales with it
+		float saturation = 1 - s * EyeAdaptSettings.Get().MaxDesaturation;
+		float contrast = 1 + s * m_EyeAdaptAmbient * EyeAdaptSettings.Get().MaxContrastBoost; // counters the haze of the EV boost, so it scales with it
 
 		// Blue shift: keep blue, pull red down fully and green halfway
-		float shift = s * EyeAdaptConfig.BLUE_SHIFT;
+		float shift = s * EyeAdaptSettings.Get().BlueShift;
 		vector tint = Vector(1 - shift, 1 - shift * 0.5, 1);
 
 		m_EyeAdaptPPE.Apply(GetEyeAdaptEVBoost(), saturation, contrast, tint);

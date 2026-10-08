@@ -10,20 +10,20 @@ class EyeAdaptState
 
 	void EyeAdaptState()
 	{
-		Set(EyeAdaptConfig.START_ADAPTATION);
+		Set(EyeAdaptSettings.Get().StartAdaptation);
 	}
 
 	// target: 1 = darkness, lower = light exposure (from the light dose)
 	void Update(float timeslice, float target)
 	{
-		m_Fast = Approach(m_Fast, target, timeslice, EyeAdaptConfig.FAST_CURVE_SECONDS, EyeAdaptConfig.LIGHT_FAST_SECONDS);
-		m_Slow = Approach(m_Slow, target, timeslice, EyeAdaptConfig.FULL_ADAPT_SECONDS, EyeAdaptConfig.LIGHT_SLOW_SECONDS);
+		m_Fast = Approach(m_Fast, target, timeslice, EyeAdaptSettings.Get().FastCurveSeconds, EyeAdaptSettings.Get().LightFastSeconds);
+		m_Slow = Approach(m_Slow, target, timeslice, EyeAdaptSettings.Get().FullAdaptSeconds, EyeAdaptSettings.Get().LightSlowSeconds);
 	}
 
 	// 0 = light-adapted, 1 = fully dark-adapted
 	float Get()
 	{
-		float w = Math.Clamp(EyeAdaptConfig.FAST_CURVE_WEIGHT, 0, 1);
+		float w = Math.Clamp(EyeAdaptSettings.Get().FastCurveWeight, 0, 1);
 		return w * m_Fast + (1 - w) * m_Slow;
 	}
 
