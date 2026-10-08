@@ -65,7 +65,7 @@ class EyeAdaptLightDose
 		m_LightCount = lights.Count();
 
 		// Perception is roughly logarithmic: one light = full effect, more lights add less and less, never above 1
-		m_Dose = 1 - Math.Pow(Math.EULER, -total * EyeAdaptConfig.DOSE_SENSITIVITY);
+		m_Dose = 1 - Math.Pow(Math.EULER, -total * EyeAdaptSettings.Get().DoseSensitivity);
 
 		if (verbose)
 			Print(string.Format("[EyeAdapt] scan: %1 lights registered | raw dose %2 | saturated %3", m_LightCount, total, m_Dose));
@@ -82,7 +82,7 @@ class EyeAdaptLightDose
 		light.GetTransform(m);
 		vector toLight = m[3] - eyePos;
 		float dist = toLight.Length();
-		if (dist > Math.Min(EyeAdaptConfig.SCAN_RADIUS, light.m_Radius))
+		if (dist > Math.Min(EyeAdaptSettings.Get().ScanRadius, light.m_Radius))
 			return 0;
 
 		// Camera-following ambient fill and 10-80 ms muzzle flashes are not exposure sources
@@ -103,7 +103,7 @@ class EyeAdaptLightDose
 		float d;
 		if (isOwnSpot)
 		{
-			d = intensity * EyeAdaptConfig.OWN_LIGHT_FACTOR;
+			d = intensity * EyeAdaptSettings.Get().OwnLightFactor;
 		}
 		else
 		{
@@ -111,7 +111,7 @@ class EyeAdaptLightDose
 
 			// Looking at it = full, behind you = VIEW_MIN_FACTOR (a fire behind you still lights up the scene)
 			float view = Math.Max(vector.Dot(eyeDir, dirToLight), 0);
-			view = Math.Lerp(EyeAdaptConfig.VIEW_MIN_FACTOR, 1, view);
+			view = Math.Lerp(EyeAdaptSettings.Get().ViewMinFactor, 1, view);
 
 			// Spot lights (flashlights, headlights) only count when the beam points at us.
 			// Forward axis m[2] = beam direction (in-game: flashlight on the ground counts when looking into the beam)
@@ -122,20 +122,20 @@ class EyeAdaptLightDose
 					return 0;
 			}
 
-			d = intensity * view / Math.Max(Math.Pow(dist, EyeAdaptConfig.FALLOFF_EXPONENT), 1);
+			d = intensity * view / Math.Max(Math.Pow(dist, EyeAdaptSettings.Get().FalloffExponent), 1);
 		}
 
 		// Weak contributions count as zero, not "a little" (campfire 100 m away)
-		if (d < EyeAdaptConfig.DOSE_THRESHOLD)
+		if (d < EyeAdaptSettings.Get().DoseThreshold)
 			return 0;
 
 		// Occlusion last: raycasts are the expensive part, so only for lights that would count.
 		// Own spot lights are never occluded (they light up what's right in front of us).
 		string blocker = "";
-		if (EyeAdaptConfig.USE_OCCLUSION && !isOwnSpot)
+		if (EyeAdaptSettings.Get().UseOcclusion && !isOwnSpot)
 		{
 			d *= GetOcclusionFactor(light, eyePos, player, blocker);
-			if (d < EyeAdaptConfig.DOSE_THRESHOLD)
+			if (d < EyeAdaptSettings.Get().DoseThreshold)
 				d = 0;
 		}
 
@@ -156,10 +156,10 @@ class EyeAdaptLightDose
 		vector lightPos = light.GetWorldPosition();
 		vector toLight = lightPos - eyePos;
 		float dist = toLight.Length();
-		if (dist <= EyeAdaptConfig.OCCLUSION_END_OFFSET)
+		if (dist <= EyeAdaptSettings.Get().OcclusionEndOffset)
 			return 1;
 
-		vector endPos = eyePos + toLight.Normalized() * (dist - EyeAdaptConfig.OCCLUSION_END_OFFSET);
+		vector endPos = eyePos + toLight.Normalized() * (dist - EyeAdaptSettings.Get().OcclusionEndOffset);
 
 		vector contactPos, contactDir;
 		int contactComponent;
@@ -173,15 +173,15 @@ class EyeAdaptLightDose
 		if (hits.Count() == 0)
 		{
 			blocker = "terrain";
-			return EyeAdaptConfig.OCCLUDED_FACTOR;
+			return EyeAdaptSettings.Get().OccludedFactor;
 		}
 
 		Object hit = hits.Get(0);
 		blocker = hit.GetType();
 		if (hit.IsTree() || hit.IsBush())
-			return EyeAdaptConfig.VEGETATION_OCCLUDED_FACTOR;
+			return EyeAdaptSettings.Get().VegetationOccludedFactor;
 
-		return EyeAdaptConfig.OCCLUDED_FACTOR;
+		return EyeAdaptSettings.Get().OccludedFactor;
 	}
 
 	// Flames look orange-red in RGB (fireplace 1.3/0.35/0.15 is "redder" than the red chemlight 1.0/0.3/0.2),
@@ -205,7 +205,7 @@ class EyeAdaptLightDose
 
 		vector c = light.GetDiffuseColorV();
 		if (c[0] > 0 && c[1] < c[0] * 0.35 && c[2] < c[0] * 0.35)
-			return EyeAdaptConfig.RED_LIGHT_FACTOR;
+			return EyeAdaptSettings.Get().RedLightFactor;
 
 		return 1;
 	}
