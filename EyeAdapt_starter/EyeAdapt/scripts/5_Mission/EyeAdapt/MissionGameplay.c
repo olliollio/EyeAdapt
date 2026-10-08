@@ -7,6 +7,8 @@ modded class MissionGameplay
 	protected PPERequester_EyeAdapt m_EyeAdaptPPE;
 	protected bool m_EyeAdaptBypass; // debug: visual effect switched off for A/B comparison
 	protected float m_EyeAdaptNight;  // night gate 0 (day) .. 1 (night)
+	protected float m_EyeAdaptAmbient = 1;       // share of the max EV boost the sky allows (moon/overcast/underground), smoothed
+	protected float m_EyeAdaptAmbientTarget = 1; // latest value from the scan
 	protected float m_EyeAdaptLogTimer;
 
 	override void OnInit()
@@ -43,11 +45,16 @@ modded class MissionGameplay
 		{
 			m_EyeAdaptScanTimer = 0;
 			m_EyeAdaptDose.Scan();
+			m_EyeAdaptAmbientTarget = EyeAdaptEnvironment.GetAmbientGain(player);
 		}
 
 		// Adaptation keeps running by day (eyes keep pace through dusk), only the visuals are gated
 		float target = 1 - m_EyeAdaptDose.Get() * EyeAdaptConfig.MAX_DOSE_EFFECT;
 		m_EyeAdapt.Update(timeslice, target);
+
+		// Smooth the ambient gain so scan steps and underground state switches don't jump the brightness
+		float k = Math.Clamp(timeslice / EyeAdaptConfig.AMBIENT_SMOOTH_SECONDS, 0, 1);
+		m_EyeAdaptAmbient += (m_EyeAdaptAmbientTarget - m_EyeAdaptAmbient) * k;
 		m_EyeAdaptNight = EyeAdaptEnvironment.GetNightFactor();
 		ApplyEyeAdaptVisuals();
 
@@ -58,6 +65,9 @@ modded class MissionGameplay
 			Print(string.Format("[EyeAdapt] adaptation %1 | dose %2 | strongest %3 (%4) | lights %5 | night %6 | boost %7 EV | bypass %8 | daytime %9",
 				m_EyeAdapt.Get(), m_EyeAdaptDose.Get(), m_EyeAdaptDose.GetStrongestName(), m_EyeAdaptDose.GetStrongestDose(),
 				m_EyeAdaptDose.GetLightCount(), m_EyeAdaptNight, GetEyeAdaptEVBoost(), m_EyeAdaptBypass, g_Game.GetDayTime()));
+			Print(string.Format("[EyeAdapt] env | moon raw %1 | moon light %2 | overcast %3 | sky light %4 | ambient gain %5 | underground %6",
+				EyeAdaptEnvironment.GetMoonIntensityRaw(), EyeAdaptEnvironment.GetMoonLight(), EyeAdaptEnvironment.GetOvercast(),
+				EyeAdaptEnvironment.GetSkyLight(), m_EyeAdaptAmbient, player.m_UndergroundPresence));
 		}
 	}
 
@@ -71,9 +81,11 @@ modded class MissionGameplay
 		return Math.Round(m_EyeAdapt.Get() * m_EyeAdaptNight * 500) / 500;
 	}
 
+	// Brightness is limited by what the sky offers (design rule 4), colour loss is not:
+	// fully adapted eyes see in grey even on the darkest night
 	protected float GetEyeAdaptEVBoost()
 	{
-		return GetEyeAdaptStrength() * EyeAdaptConfig.MAX_EV_BOOST;
+		return GetEyeAdaptStrength() * m_EyeAdaptAmbient * EyeAdaptConfig.MAX_EV_BOOST;
 	}
 
 	protected void ApplyEyeAdaptVisuals()
@@ -87,7 +99,7 @@ modded class MissionGameplay
 
 		float s = GetEyeAdaptStrength();
 		float saturation = 1 - s * EyeAdaptConfig.MAX_DESATURATION;
-		float contrast = 1 + s * EyeAdaptConfig.MAX_CONTRAST_BOOST;
+		float contrast = 1 + s * m_EyeAdaptAmbient * EyeAdaptConfig.MAX_CONTRAST_BOOST; // counters the haze of the EV boost, so it scales with it
 
 		// Blue shift: keep blue, pull red down fully and green halfway
 		float shift = s * EyeAdaptConfig.BLUE_SHIFT;
