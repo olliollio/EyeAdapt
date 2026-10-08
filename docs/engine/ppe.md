@@ -258,6 +258,13 @@ For EyeAdapt glare: same building blocks (overlay white with small factor, EV bu
 
 ---
 
+### 5.1 Bloom from script: verified in game (2026-10-08)
+
+- `Material.SetParam("BloomIntensity"/"BloomThreshold", v)` on the glow material returns true, but a **one-time** write has **no visible effect**: the engine refreshes the glow pass from its own values. Writing the value **every frame** works (clear halo around a campfire at intensity 2.75, threshold 0.2).
+- Use the material object the PPE manager renders with: `m_PPEClassMap.Get(PostProcessEffectType.Glow).GetMaterial()` (protected, so a `modded class PPEManager` accessor). Vanilla's PPE path is `"Graphics/Materials/postprocess/glow"`.
+- `Material` is a native handle (`typedef int[]`); vanilla checks it with `== 0x0`. There is no getter, so boosts are added to configured base values (vanilla `glow.emat`: intensity 0.75, threshold 0.5).
+- `Material.ResetParam(name)` restores the material's own value when done, so lighting mods that edit `glow.emat` keep their bloom. Reset on death and in `OnMissionFinish` too, material changes outlive the mission.
+
 ## 6. Other vanilla requesters that touch our params [V]
 
 | Requester (file) | Param | Layer / op | When |

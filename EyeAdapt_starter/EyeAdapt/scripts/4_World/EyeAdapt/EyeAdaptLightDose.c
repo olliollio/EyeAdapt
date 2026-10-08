@@ -4,6 +4,8 @@ class EyeAdaptLightDose
 {
 	// Saturated total dose of the last scan, 0..1
 	protected float m_Dose;
+	// Same, but only light close to the view centre counts (drives the glare), 0..1
+	protected float m_GlareDose;
 
 	// Debug info of the last scan
 	protected string m_StrongestName;
@@ -13,6 +15,11 @@ class EyeAdaptLightDose
 	float Get()
 	{
 		return m_Dose;
+	}
+
+	float GetGlareDose()
+	{
+		return m_GlareDose;
 	}
 
 	string GetStrongestName()
@@ -38,6 +45,7 @@ class EyeAdaptLightDose
 		Object player = g_Game.GetPlayer();
 
 		float total = 0;
+		float glareTotal = 0;
 		m_StrongestName = "";
 		m_StrongestDose = 0;
 
@@ -51,11 +59,13 @@ class EyeAdaptLightDose
 				continue;
 			}
 
-			float d = GetLightDose(light, eyePos, eyeDir, player, verbose);
+			float glare;
+			float d = GetLightDose(light, eyePos, eyeDir, player, verbose, glare);
 			if (d <= 0)
 				continue;
 
 			total += d;
+			glareTotal += glare;
 			if (d > m_StrongestDose)
 			{
 				m_StrongestDose = d;
@@ -66,13 +76,16 @@ class EyeAdaptLightDose
 
 		// Perception is roughly logarithmic: one light = full effect, more lights add less and less, never above 1
 		m_Dose = 1 - Math.Pow(Math.EULER, -total * EyeAdaptSettings.Get().DoseSensitivity);
+		m_GlareDose = 1 - Math.Pow(Math.EULER, -glareTotal * EyeAdaptSettings.Get().DoseSensitivity);
 
 		if (verbose)
-			Print(string.Format("[EyeAdapt] scan: %1 lights registered | raw dose %2 | saturated %3", m_LightCount, total, m_Dose));
+			Print(string.Format("[EyeAdapt] scan: %1 lights registered | raw dose %2 | saturated %3 | glare dose %4", m_LightCount, total, m_Dose, m_GlareDose));
 	}
 
-	protected float GetLightDose(ScriptedLightBase light, vector eyePos, vector eyeDir, Object player, bool verbose)
+	// Returns the light's dose. glare = the same light weighted by how centred it is in view (0 for own spot lights)
+	protected float GetLightDose(ScriptedLightBase light, vector eyePos, vector eyeDir, Object player, bool verbose, out float glare)
 	{
+		glare = 0;
 		if (!light.IsEnabled())
 			return 0;
 
@@ -110,8 +123,8 @@ class EyeAdaptLightDose
 			vector dirToLight = toLight.Normalized();
 
 			// Looking at it = full, behind you = VIEW_MIN_FACTOR (a fire behind you still lights up the scene)
-			float view = Math.Max(vector.Dot(eyeDir, dirToLight), 0);
-			view = Math.Lerp(EyeAdaptSettings.Get().ViewMinFactor, 1, view);
+			float facing = Math.Max(vector.Dot(eyeDir, dirToLight), 0);
+			float view = Math.Lerp(EyeAdaptSettings.Get().ViewMinFactor, 1, facing);
 
 			// Spot lights (flashlights, headlights) only count when the beam points at us.
 			// Forward axis m[2] = beam direction (in-game: flashlight on the ground counts when looking into the beam)
@@ -122,21 +135,33 @@ class EyeAdaptLightDose
 					return 0;
 			}
 
-			d = intensity * view / Math.Max(Math.Pow(dist, EyeAdaptSettings.Get().FalloffExponent), 1);
+			float falloff = Math.Max(Math.Pow(dist, EyeAdaptSettings.Get().FalloffExponent), 1);
+			d = intensity * view / falloff;
+
+			// Glare only from light close to the view centre (cos^8: half strength at ~30 degrees off centre)
+			glare = intensity * Math.Pow(facing, EyeAdaptSettings.Get().GlareViewPower) / falloff;
 		}
 
 		// Weak contributions count as zero, not "a little" (campfire 100 m away)
 		if (d < EyeAdaptSettings.Get().DoseThreshold)
+		{
+			glare = 0;
 			return 0;
+		}
 
 		// Occlusion last: raycasts are the expensive part, so only for lights that would count.
 		// Own spot lights are never occluded (they light up what's right in front of us).
 		string blocker = "";
 		if (EyeAdaptSettings.Get().UseOcclusion && !isOwnSpot)
 		{
-			d *= GetOcclusionFactor(light, eyePos, player, blocker);
+			float occlusion = GetOcclusionFactor(light, eyePos, player, blocker);
+			d *= occlusion;
+			glare *= occlusion;
 			if (d < EyeAdaptSettings.Get().DoseThreshold)
+			{
 				d = 0;
+				glare = 0;
+			}
 		}
 
 		if (verbose)

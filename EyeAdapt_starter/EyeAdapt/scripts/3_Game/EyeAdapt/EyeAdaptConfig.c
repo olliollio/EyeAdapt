@@ -10,4 +10,5 @@ class EyeAdaptConfig
 	static const int   KEY_FULL = KeyCode.KC_NUMPAD3;   // adaptation -> 1 ("fully dark-adapted")
 	static const int   KEY_BYPASS = KeyCode.KC_NUMPAD7; // toggle the visual effect off/on for A/B comparison with vanilla
 	static const int   KEY_LIGHTS = KeyCode.KC_NUMPAD9; // print every light that contributes to the dose to the script log
+	static const int   KEY_GLARE_TEST = KeyCode.KC_MULTIPLY; // Numpad *: toggle full glare on/off to judge the glare look
 }
