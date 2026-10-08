@@ -76,6 +76,15 @@ class EyeAdaptLightDose
 		if (!light.IsEnabled())
 			return 0;
 
+		// Distance first: cheapest cull, most registered lights are far away.
+		// The light's own radius is a natural cut-off (campfire 25 m, chemlight 7.5 m, headlights up to 100 m)
+		vector m[4];
+		light.GetTransform(m);
+		vector toLight = m[3] - eyePos;
+		float dist = toLight.Length();
+		if (dist > Math.Min(EyeAdaptConfig.SCAN_RADIUS, light.m_Radius))
+			return 0;
+
 		// Camera-following ambient fill and 10-80 ms muzzle flashes are not exposure sources
 		if (light.IsInherited(PersonalLight) || light.IsInherited(MuzzleFlashLight))
 			return 0;
@@ -98,15 +107,6 @@ class EyeAdaptLightDose
 		}
 		else
 		{
-			vector m[4];
-			light.GetTransform(m);
-			vector toLight = m[3] - eyePos;
-			float dist = toLight.Length();
-
-			// The light's own radius is a natural cut-off (campfire 25 m, chemlight 7.5 m, headlights up to 100 m)
-			if (dist > Math.Min(EyeAdaptConfig.SCAN_RADIUS, light.m_Radius))
-				return 0;
-
 			vector dirToLight = toLight.Normalized();
 
 			// Looking at it = full, behind you = VIEW_MIN_FACTOR (a fire behind you still lights up the scene)
@@ -114,7 +114,7 @@ class EyeAdaptLightDose
 			view = Math.Lerp(EyeAdaptConfig.VIEW_MIN_FACTOR, 1, view);
 
 			// Spot lights (flashlights, headlights) only count when the beam points at us.
-			// Assumes the transform's forward axis (m[2]) is the beam direction (unverified, check with the debug key)
+			// Forward axis m[2] = beam direction (in-game: flashlight on the ground counts when looking into the beam)
 			if (isSpot)
 			{
 				float beam = vector.Dot(m[2], dirToLight * -1);
@@ -129,10 +129,53 @@ class EyeAdaptLightDose
 		if (d < EyeAdaptConfig.DOSE_THRESHOLD)
 			return 0;
 
+		// Occlusion last: raycasts are the expensive part, so only for lights that would count.
+		// Own spot lights are never occluded (they light up what's right in front of us).
+		string blocker = "";
+		if (EyeAdaptConfig.USE_OCCLUSION && !isOwnSpot)
+		{
+			blocker = GetOccluder(light, eyePos, player);
+			if (blocker != "")
+			{
+				// A fire behind a wall still lights up the surroundings a bit (indirect light)
+				d *= EyeAdaptConfig.OCCLUDED_FACTOR;
+				if (d < EyeAdaptConfig.DOSE_THRESHOLD)
+					d = 0;
+			}
+		}
+
 		if (verbose)
-			Print(string.Format("[EyeAdapt]   %1 | dose %2 | brightness %3 | radius %4 | spot %5 | own %6", light.ClassName(), d, light.m_Brightness, light.m_Radius, isSpot, IsOwnLight(light, player)));
+			Print(string.Format("[EyeAdapt]   %1 | dose %2 | brightness %3 | radius %4 | spot %5 | own %6 | blocked by '%7'", light.ClassName(), d, light.m_Brightness, light.m_Radius, isSpot, IsOwnLight(light, player), blocker));
 
 		return d;
+	}
+
+	// Returns a description of what blocks the line of sight eye -> light, or "" if it's free.
+	// The ray stops OCCLUSION_END_OFFSET before the light so the fireplace/torch/lamp model itself can't block it,
+	// and ignores our own player and the object the light is attached to.
+	protected string GetOccluder(ScriptedLightBase light, vector eyePos, Object player)
+	{
+		vector lightPos = light.GetWorldPosition();
+		vector toLight = lightPos - eyePos;
+		float dist = toLight.Length();
+		if (dist <= EyeAdaptConfig.OCCLUSION_END_OFFSET)
+			return "";
+
+		vector endPos = eyePos + toLight.Normalized() * (dist - EyeAdaptConfig.OCCLUSION_END_OFFSET);
+
+		vector contactPos, contactDir;
+		int contactComponent;
+		set<Object> hits = new set<Object>();
+		Object lightParent = light.GetAttachmentParent();
+
+		if (!DayZPhysics.RaycastRV(eyePos, endPos, contactPos, contactDir, contactComponent, hits, player, lightParent, false, false, ObjIntersectView))
+			return "";
+
+		// Hit without an object = terrain (hill between us and the light)
+		if (hits.Count() == 0)
+			return "terrain";
+
+		return hits.Get(0).GetType();
 	}
 
 	// Flames look orange-red in RGB (fireplace 1.3/0.35/0.15 is "redder" than the red chemlight 1.0/0.3/0.2),
