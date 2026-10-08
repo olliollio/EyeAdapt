@@ -4,6 +4,7 @@ modded class MissionGameplay
 	protected ref EyeAdaptState m_EyeAdapt;
 	protected ref EyeAdaptLightDose m_EyeAdaptDose;
 	protected float m_EyeAdaptScanTimer;
+	protected float m_EyeAdaptReportTimer;
 	protected PPERequester_EyeAdapt m_EyeAdaptPPE;
 	protected bool m_EyeAdaptBypass; // debug: visual effect switched off for A/B comparison
 	protected float m_EyeAdaptNight;  // night gate 0 (day) .. 1 (night)
@@ -37,6 +38,14 @@ modded class MissionGameplay
 		if (!player || !player.IsAlive())
 			return;
 
+		// Value restored by the server after login (offline time counted as darkness)
+		if (EyeAdaptClient.s_PendingRestore >= 0)
+		{
+			m_EyeAdapt.Set(EyeAdaptClient.s_PendingRestore);
+			Print(string.Format("[EyeAdapt] adaptation restored from server: %1", EyeAdaptClient.s_PendingRestore));
+			EyeAdaptClient.s_PendingRestore = -1;
+		}
+
 		if (EyeAdaptSettings.Get().DebugKeys)
 			UpdateEyeAdaptDebugKeys(player);
 
@@ -60,6 +69,14 @@ modded class MissionGameplay
 
 		float target = 1 - dose * EyeAdaptSettings.Get().MaxDoseEffect;
 		m_EyeAdapt.Update(timeslice, target);
+
+		// Report to the server, which saves the latest value on logout
+		m_EyeAdaptReportTimer += timeslice;
+		if (m_EyeAdaptReportTimer >= EyeAdaptSettings.Get().ReportIntervalSeconds)
+		{
+			m_EyeAdaptReportTimer = 0;
+			EyeAdaptClient.Report(m_EyeAdapt.Get());
+		}
 
 		// Smooth the ambient gain so scan steps and underground state switches don't jump the brightness
 		float k = Math.Clamp(timeslice / EyeAdaptSettings.Get().AmbientSmoothSeconds, 0, 1);
@@ -116,6 +133,14 @@ modded class MissionGameplay
 		vector tint = Vector(1 - shift, 1 - shift * 0.5, 1);
 
 		m_EyeAdaptPPE.Apply(GetEyeAdaptEVBoost(), saturation, contrast, tint);
+	}
+
+	// Server started our logout countdown: send one final report so the saved value is current
+	override void StartLogoutMenu(int time)
+	{
+		super.StartLogoutMenu(time);
+		if (m_EyeAdapt)
+			EyeAdaptClient.Report(m_EyeAdapt.Get());
 	}
 
 	// ---- Debug keys (see EyeAdaptConfig) ----

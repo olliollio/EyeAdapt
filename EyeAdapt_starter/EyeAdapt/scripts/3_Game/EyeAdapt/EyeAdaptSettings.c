@@ -6,17 +6,19 @@
 // Bump CURRENT_VERSION (and the Version default) whenever fields are added, so existing files get the new keys.
 class EyeAdaptSettings
 {
-	static const int CURRENT_VERSION = 1;
-	int Version = 1;
+	static const int CURRENT_VERSION = 2;
+	int Version = 2;
 	bool Enabled = true;
 
 	// Adaptation curve: fast stage (pupil/cones) + slow stage (rods), each ~95 % after its time
 	float FullAdaptSeconds = 240.0;        // slow stage. Brief: 300-600 for release
 	float FastCurveSeconds = 20.0;
 	float FastCurveWeight = 0.3;           // share of the gain from the fast stage (0..1)
-	float StartAdaptation = 0.0;           // value on login (until persistence exists)
+	float StartAdaptation = 1.0;           // fresh characters and players without a saved record ("you were sleeping")
 	float LightFastSeconds = 2.0;          // fast stage drops this fast under light
 	float LightSlowSeconds = 30.0;         // slow stage drops this fast under light
+	float ReportIntervalSeconds = 15.0;    // client reports its adaptation to the server this often (saved on logout)
+	float SaveIntervalSeconds = 120.0;     // server writes all online players' records this often (crash safety), 0 = only on logout
 
 	// Light exposure (dose)
 	float ScanInterval = 0.5;              // seconds between light scans
@@ -129,14 +131,34 @@ class EyeAdaptSettings
 // Own RPC ids, far above vanilla's ERPCs range (docs/engine/mission-network.md §3.5)
 class EyeAdaptRPC
 {
-	static const int SYNC_SETTINGS = 714200101; // server -> client: settings
+	static const int SYNC_SETTINGS = 714200101;     // server -> client: settings
+	static const int RESTORE_ADAPTATION = 714200102; // server -> client: adaptation after login
+	static const int REPORT_ADAPTATION = 714200103;  // client -> server: current adaptation
 }
 
-// Client receives the settings. target == null RPCs land in DayZGame.OnRPC
+// Our RPCs (target == null RPCs land in DayZGame.OnRPC)
 modded class DayZGame
 {
 	override void OnRPC(PlayerIdentity sender, Object target, int rpc_type, ParamsReadContext ctx)
 	{
+		if (!target && rpc_type == EyeAdaptRPC.REPORT_ADAPTATION)
+		{
+			#ifdef SERVER
+			float reported;
+			if (ctx.Read(reported))
+				EyeAdaptStore.OnReport(sender, reported);
+			#endif
+			return;
+		}
+
+		if (!target && rpc_type == EyeAdaptRPC.RESTORE_ADAPTATION)
+		{
+			float restored;
+			if (ctx.Read(restored))
+				EyeAdaptClient.s_PendingRestore = restored;
+			return;
+		}
+
 		if (!target && rpc_type == EyeAdaptRPC.SYNC_SETTINGS)
 		{
 			Param1<EyeAdaptSettings> data = new Param1<EyeAdaptSettings>(null);
