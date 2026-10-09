@@ -6,8 +6,8 @@
 // Bump CURRENT_VERSION (and the Version default) whenever fields are added, so existing files get the new keys.
 class EyeAdaptSettings
 {
-	static const int CURRENT_VERSION = 15;
-	int Version = 15;
+	static const int CURRENT_VERSION = 16;
+	int Version = 16;
 	bool Enabled = true;
 
 	// Adaptation curve: fast stage (pupil/cones) + slow stage (rods), each ~95 % after its time.
@@ -42,7 +42,8 @@ class EyeAdaptSettings
 	float RedLightFactor = 0.15;           // red light barely affects night vision (lights with Type "red", or "auto" and red colour)
 	float NightVisionDose = 0.5;           // powered NV goggles (both eyes) count as this dose, 0 = free
 	float NightVisionScopeDose = 0.25;     // powered NV scope (only the aiming eye), 0 = free
-	float OwnVehicleLightDose = 0.5;       // sitting in a car with its headlights on (you look at the lit road): at least this dose, 0 = free
+	float FlashbangAdaptationLoss = 1.0;   // share of the adaptation lost when a flash grenade hits you (1 = back to zero, 0 = off)
+	float OwnVehicleLightDose = 0.5;      // sitting in a car with its headlights on (you look at the lit road): at least this dose, 0 = free
 
 	// Light table, per light class (also matches subclasses, the most specific entry wins). Lights without an entry
 	// count with factor 1, type "auto", range ScanRadius. Add modded lights here (Numpad 9 prints the class names).

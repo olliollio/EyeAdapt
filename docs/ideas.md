@@ -21,7 +21,7 @@ Idea: multiply it by how much the camera looks along the car (`Lerp(ViewMinFacto
 
 ## Short flashes (explosions, flashbang, fireworks)
 
-`ExplosiveLight`, `ShellLight`, `FlashGrenadeLight` live only 0.15-0.35 s (fireworks `ExplosionLight` last 2.1 s and are in the light table), so the 0.25 s light scan often misses them. A real blast at night costs night vision.
+`ExplosiveLight` and `ShellLight` live only 0.15-0.35 s, so the 0.25 s light scan often misses them. A real blast at night costs night vision. Already handled: flash grenades (hook on vanilla's flashbang hit, `FlashbangAdaptationLoss`) and fireworks (`ExplosionLight` lasts 2.1 s, in the light table).
 
 - Fix would be a hook when such a light is created (registry `EOnInit`): compute its dose once and apply it as a short dose spike.
 - The flashbang already has its own vanilla white-out.
