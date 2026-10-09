@@ -1,4 +1,16 @@
 // 4_World: light exposure ("dose") from all registered lights. See CLAUDE.md §3.3 and docs/engine/lights.md §10.
+// One light that passed the cheap checks of the scan (pass 1), waiting for its occlusion test (pass 2)
+class EyeAdaptLightHit
+{
+	ScriptedLightBase Light;
+	EyeAdaptLightEntry Entry;
+	float Dose;       // before occlusion
+	float Glare;      // before occlusion
+	float Distance;
+	bool IsSpot;
+	bool IsOwnSpot;
+}
+
 // dose per light = intensity × distance falloff × view factor (× beam check for spot lights)
 class EyeAdaptLightDose
 {
@@ -44,9 +56,18 @@ class EyeAdaptLightDose
 		return m_LightCount;
 	}
 
+	// Raw dose (sum before saturation, times DoseSensitivity) from which the saturated dose is >= 98 %.
+	// More light changes nothing visible, so the remaining occlusion raycasts are skipped
+	const float SATURATION_STOP = 3.9;
+
 	// verbose: print every light that contributes (debug key)
+	//
+	// Two passes: 1. cheap checks for all registered lights (on, table, distance, view, beam, threshold), strongest first.
+	// 2. occlusion raycasts in that order, until the dose is saturated or MaxOcclusionChecks is used up.
+	// So a base with dozens of lamps costs at most MaxOcclusionChecks raycasts per scan, and the strongest lights are checked.
 	void Scan(bool verbose = false)
 	{
+		EyeAdaptSettings cfg = EyeAdaptSettings.Get();
 		vector eyePos = g_Game.GetCurrentCameraPosition();
 		vector eyeDir = g_Game.GetCurrentCameraDirection();
 		Object player = g_Game.GetPlayer();
@@ -60,6 +81,8 @@ class EyeAdaptLightDose
 		// The car we sit in: its lights don't shine at us, they light up the road ahead (handled after the loop)
 		CarScript ownCar = GetOwnCar(player);
 
+		// Pass 1: cheap checks
+		array<ref EyeAdaptLightHit> hits = new array<ref EyeAdaptLightHit>();
 		array<ScriptedLightBase> lights = ScriptedLightBase.s_EyeAdaptLights;
 		for (int i = lights.Count() - 1; i >= 0; i--)
 		{
@@ -73,52 +96,116 @@ class EyeAdaptLightDose
 			if (ownCar && light.GetAttachmentParent() == ownCar)
 				continue;
 
-			float glare;
-			bool foreignSpot;
-			float d = GetLightDose(light, eyePos, eyeDir, player, verbose, glare, foreignSpot);
+			EyeAdaptLightHit hit = CollectLight(light, eyePos, eyeDir, player);
+			if (hit)
+				InsertByDose(hits, hit);
+		}
+		m_LightCount = lights.Count();
+
+		// Pass 2: occlusion, strongest first
+		int raycasts = 0;
+		int skipped = 0;
+		foreach (EyeAdaptLightHit h : hits)
+		{
+			bool foreignCandidate = h.IsSpot && !h.IsOwnSpot && h.Glare > 0;
+			bool doseFull = total * cfg.DoseSensitivity >= SATURATION_STOP;
+			bool glareFull = glareTotal * cfg.DoseSensitivity >= SATURATION_STOP;
+
+			// Saturated: this light can't add anything visible (a foreign spot light still sets the dazzle value)
+			if (doseFull && (glareFull || h.Glare <= 0) && !foreignCandidate)
+			{
+				skipped++;
+				continue;
+			}
+
+			float d = h.Dose;
+			float glare = h.Glare;
+			string blocker = "";
+			if (cfg.UseOcclusion && !h.IsOwnSpot)
+			{
+				float occlusion;
+				if (cfg.MaxOcclusionChecks <= 0 || raycasts < cfg.MaxOcclusionChecks)
+				{
+					occlusion = GetOcclusionFactor(h.Light, eyePos, player, blocker);
+					raycasts++;
+				}
+				else
+				{
+					// Over budget: assume blocked rather than spend another raycast
+					occlusion = cfg.OccludedFactor;
+					blocker = "(over MaxOcclusionChecks)";
+				}
+				d *= occlusion;
+				glare *= occlusion;
+				if (d < cfg.DoseThreshold)
+				{
+					d = 0;
+					glare = 0;
+				}
+			}
+
+			if (verbose)
+			{
+				string tableEntry = "none";
+				if (h.Entry)
+					tableEntry = string.Format("%1 x%2 %3", h.Entry.ClassName, h.Entry.Factor, h.Entry.Type);
+				Print(string.Format("[EyeAdapt]   %1 | dose %2 | brightness %3 | radius %4 | spot %5 | own %6 | blocked by '%7' | table %8 | %9 m", h.Light.ClassName(), d, h.Light.m_Brightness, h.Light.m_Radius, h.IsSpot, h.IsOwnSpot, blocker, tableEntry, h.Distance));
+			}
+
 			if (d <= 0)
 				continue;
 
 			total += d;
 			glareTotal += glare;
-			if (foreignSpot)
+			if (h.IsSpot && !h.IsOwnSpot && glare > 0)
 				m_DazzleLight = Math.Max(m_DazzleLight, glare);
 			if (d > m_StrongestDose)
 			{
 				m_StrongestDose = d;
-				m_StrongestName = light.ClassName();
+				m_StrongestName = h.Light.ClassName();
 			}
 		}
-		m_LightCount = lights.Count();
 
 		// Perception is roughly logarithmic: one light = full effect, more lights add less and less, never above 1
-		m_Dose = 1 - Math.Pow(Math.EULER, -total * EyeAdaptSettings.Get().DoseSensitivity);
-		m_GlareDose = 1 - Math.Pow(Math.EULER, -glareTotal * EyeAdaptSettings.Get().DoseSensitivity);
+		m_Dose = 1 - Math.Pow(Math.EULER, -total * cfg.DoseSensitivity);
+		m_GlareDose = 1 - Math.Pow(Math.EULER, -glareTotal * cfg.DoseSensitivity);
 
 		// Driving with headlights on: looking at the lit road keeps the eyes partly light-adapted
 		if (ownCar && ownCar.m_Headlight && ownCar.m_Headlight.IsEnabled())
 		{
-			m_Dose = Math.Max(m_Dose, EyeAdaptSettings.Get().OwnVehicleLightDose);
+			m_Dose = Math.Max(m_Dose, cfg.OwnVehicleLightDose);
 			if (verbose)
-				Print(string.Format("[EyeAdapt]   own car %1 headlights on | dose at least %2", ownCar.GetType(), EyeAdaptSettings.Get().OwnVehicleLightDose));
+				Print(string.Format("[EyeAdapt]   own car %1 headlights on | dose at least %2", ownCar.GetType(), cfg.OwnVehicleLightDose));
 		}
 
 		if (verbose)
-			Print(string.Format("[EyeAdapt] scan: %1 lights registered | raw dose %2 | saturated %3 | glare dose %4", m_LightCount, total, m_Dose, m_GlareDose));
+			Print(string.Format("[EyeAdapt] scan: %1 lights registered, %2 passed the cheap checks, %3 raycasts, %4 skipped (saturated) | raw dose %5 | saturated %6 | glare dose %7", m_LightCount, hits.Count(), raycasts, skipped, total, m_Dose, m_GlareDose));
 	}
 
-	// Returns the light's dose. glare = the same light weighted by how centred it is in view (0 for own spot lights).
-	// foreignSpot = someone else's spot light whose beam points at us
-	protected float GetLightDose(ScriptedLightBase light, vector eyePos, vector eyeDir, Object player, bool verbose, out float glare, out bool foreignSpot)
+	// Keeps hits sorted by dose, strongest first (insertion sort: only a few lights get this far)
+	protected void InsertByDose(array<ref EyeAdaptLightHit> hits, EyeAdaptLightHit hit)
 	{
-		glare = 0;
-		foreignSpot = false;
+		int pos = hits.Count();
+		hits.Insert(hit);
+		while (pos > 0 && hits.Get(pos - 1).Dose < hit.Dose)
+		{
+			hits.Set(pos, hits.Get(pos - 1));
+			pos--;
+		}
+		hits.Set(pos, hit);
+	}
+
+	// Pass 1 for one light: everything except occlusion. Null if the light doesn't count.
+	// Dose and Glare are the values before occlusion. Glare = the same light weighted by how centred it is in view
+	// (0 for own spot lights)
+	protected EyeAdaptLightHit CollectLight(ScriptedLightBase light, vector eyePos, vector eyeDir, Object player)
+	{
 		if (!light.IsEnabled())
-			return 0;
+			return null;
 
 		// Camera-following ambient fill, never an exposure source (not in the table, admins can't switch it on)
 		if (light.IsInherited(PersonalLight))
-			return 0;
+			return null;
 
 		// Per-class factor, red handling and range from the light table (cached per class)
 		EyeAdaptLightEntry entry = EyeAdaptSettings.Get().FindLight(light.Type());
@@ -131,7 +218,7 @@ class EyeAdaptLightDose
 				range = entry.Range;
 		}
 		if (factor <= 0)
-			return 0;
+			return null;
 
 		// Distance first: cheapest cull, most registered lights are far away.
 		// The light's own radius is a natural cut-off (campfire 25 m, chemlight 7.5 m, headlights up to 100 m)
@@ -140,12 +227,12 @@ class EyeAdaptLightDose
 		vector toLight = m[3] - eyePos;
 		float dist = toLight.Length();
 		if (dist > Math.Min(range, light.m_Radius))
-			return 0;
+			return null;
 
 		// Nominal brightness: the field, not GetBrightness() (that one is ~100 × flicker, lights.md §2)
 		float intensity = light.m_Brightness * factor * GetColorFactor(light, entry);
 		if (intensity <= 0)
-			return 0;
+			return null;
 
 		// Own spot light (flashlight, headtorch, weapon light): you light up the ground ahead instead of
 		// looking into it, but the lit surroundings still cost night vision. Own point lights (torch,
@@ -154,6 +241,7 @@ class EyeAdaptLightDose
 		bool isOwnSpot = isSpot && IsOwnLight(light, player);
 
 		float d;
+		float glare = 0;
 		if (isOwnSpot)
 		{
 			d = intensity * EyeAdaptSettings.Get().OwnLightFactor;
@@ -172,7 +260,7 @@ class EyeAdaptLightDose
 			{
 				float beam = vector.Dot(m[2], dirToLight * -1);
 				if (beam < Math.Cos(light.GetSpotLightAngle() * 0.5 * Math.DEG2RAD))
-					return 0;
+					return null;
 			}
 
 			float falloff = Math.Max(Math.Pow(dist, EyeAdaptSettings.Get().FalloffExponent), 1);
@@ -184,37 +272,17 @@ class EyeAdaptLightDose
 
 		// Weak contributions count as zero, not "a little" (campfire 100 m away)
 		if (d < EyeAdaptSettings.Get().DoseThreshold)
-		{
-			glare = 0;
-			return 0;
-		}
+			return null;
 
-		// Occlusion last: raycasts are the expensive part, so only for lights that would count.
-		// Own spot lights are never occluded (they light up what's right in front of us).
-		string blocker = "";
-		if (EyeAdaptSettings.Get().UseOcclusion && !isOwnSpot)
-		{
-			float occlusion = GetOcclusionFactor(light, eyePos, player, blocker);
-			d *= occlusion;
-			glare *= occlusion;
-			if (d < EyeAdaptSettings.Get().DoseThreshold)
-			{
-				d = 0;
-				glare = 0;
-			}
-		}
-
-		foreignSpot = isSpot && !isOwnSpot && glare > 0;
-
-		if (verbose)
-		{
-			string tableEntry = "none";
-			if (entry)
-				tableEntry = string.Format("%1 x%2 %3", entry.ClassName, entry.Factor, entry.Type);
-			Print(string.Format("[EyeAdapt]   %1 | dose %2 | brightness %3 | radius %4 | spot %5 | own %6 | blocked by '%7' | table %8 | %9 m", light.ClassName(), d, light.m_Brightness, light.m_Radius, isSpot, IsOwnLight(light, player), blocker, tableEntry, dist));
-		}
-
-		return d;
+		EyeAdaptLightHit hit = new EyeAdaptLightHit();
+		hit.Light = light;
+		hit.Entry = entry;
+		hit.Dose = d;
+		hit.Glare = glare;
+		hit.IsSpot = isSpot;
+		hit.IsOwnSpot = isOwnSpot;
+		hit.Distance = dist;
+		return hit;
 	}
 
 	// 1 = free line of sight eye -> light, lower = blocked. blocker gets the class of what's in the way ("" if free).

@@ -6,8 +6,8 @@
 // Bump CURRENT_VERSION (and the Version default) whenever fields are added, so existing files get the new keys.
 class EyeAdaptSettings
 {
-	static const int CURRENT_VERSION = 13;
-	int Version = 13;
+	static const int CURRENT_VERSION = 15;
+	int Version = 15;
 	bool Enabled = true;
 
 	// Adaptation curve: fast stage (pupil/cones) + slow stage (rods), each ~95 % after its time.
@@ -53,6 +53,7 @@ class EyeAdaptSettings
 	//   Range:     metres the light counts up to, 0 = ScanRadius. Always also limited by the light's own radius
 	ref array<ref EyeAdaptLightEntry> Lights;
 	bool UseOcclusion = true;
+	int MaxOcclusionChecks = 8;            // raycasts per scan, strongest lights first (0 = no limit). Lights over the budget count as blocked
 	float OccludedFactor = 0.15;           // light behind walls/terrain
 	float VegetationOccludedFactor = 0.5;  // light behind trees/bushes
 	float OcclusionEndOffset = 0.5;        // ray stops this far before the light
@@ -148,6 +149,9 @@ class EyeAdaptSettings
 		lights.Insert(new EyeAdaptLightEntry("FlareLight", 10, "full", 100));
 		// Road flare is red but bright and broadband, it still bleaches the rods
 		lights.Insert(new EyeAdaptLightEntry("RoadflareLight", 1, "full"));
+		// Fireworks: nominal brightness is only 0.05, but the colours are set as 0..255 (not 0..1), so the real light is
+		// ~250 times stronger (x ~12 effective, like a flare) and flickers up to x3. Lives 2.1 s, so the scan sees it
+		lights.Insert(new EyeAdaptLightEntry("ExplosionLight", 250, "full", 60));
 		// Generator spotlight (radius 60 m)
 		lights.Insert(new EyeAdaptLightEntry("SpotlightLight", 1, "auto", 60));
 		return lights;
