@@ -6,8 +6,8 @@
 // Bump CURRENT_VERSION (and the Version default) whenever fields are added, so existing files get the new keys.
 class EyeAdaptSettings
 {
-	static const int CURRENT_VERSION = 16;
-	int Version = 16;
+	static const int CURRENT_VERSION = 17;
+	int Version = 17;
 	bool Enabled = true;
 
 	// Adaptation curve: fast stage (pupil/cones) + slow stage (rods), each ~95 % after its time.
@@ -153,6 +153,8 @@ class EyeAdaptSettings
 		// Fireworks: nominal brightness is only 0.05, but the colours are set as 0..255 (not 0..1), so the real light is
 		// ~250 times stronger (x ~12 effective, like a flare) and flickers up to x3. Lives 2.1 s, so the scan sees it
 		lights.Insert(new EyeAdaptLightEntry("ExplosionLight", 250, "full", 60));
+		// Livonia bunker entrance and stair lights are very dim (brightness 0.5): x1 hardly moved the adaptation
+		lights.Insert(new EyeAdaptLightEntry("EntranceLight", 4));
 		// Generator spotlight (radius 60 m)
 		lights.Insert(new EyeAdaptLightEntry("SpotlightLight", 1, "auto", 60));
 		return lights;

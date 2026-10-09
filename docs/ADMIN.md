@@ -314,6 +314,7 @@ These use the default (Factor 1, `"auto"`, own radius). Colour decides whether t
 | `FlareLight` (flare gun, all colours) | 10 | `full` | 100 | Lights a whole area from the sky. Too bright to keep the red discount, so a red flare costs the same as a green one. |
 | `RoadflareLight` | 1 | `full` | – | Red, but bright and broadband, so no red discount. |
 | `ExplosionLight` (fireworks launcher) | 250 | `full` | 60 | The light's nominal brightness is only 0.05, but vanilla sets its colours on a 0–255 scale, so the real light is about 250 times stronger. 250 brings it to roughly flare strength. All firework colours count the same. |
+| `EntranceLight` (Livonia bunker entrance and stairs, incl. `EntranceLightStairs1/2`, `Main1/2`) | 4 | `auto` | – | These vanilla lights are very dim (brightness 0.5, radius 5–10 m), so at factor 1 they barely moved NA. Underground there is no EV boost, so the effect shows when the player comes back up. |
 | `SpotlightLight` (generator spotlight) | 1 | `auto` | 60 | Own radius is 60 m. |
 
 ### 5.5 Hard-coded in the mod (not in the table)

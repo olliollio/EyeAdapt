@@ -1,5 +1,5 @@
 {
-    "Version": 16,
+    "Version": 17,
     "Enabled": 1,
     "AdaptationMode": "relativeToNight",
     "FullAdaptSeconds": 240.0,
@@ -104,6 +104,12 @@
             "Factor": 250.0,
             "Type": "full",
             "Range": 60.0
+        },
+        {
+            "ClassName": "EntranceLight",
+            "Factor": 4.0,
+            "Type": "auto",
+            "Range": 0.0
         },
         {
             "ClassName": "SpotlightLight",
