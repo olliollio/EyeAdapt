@@ -9,6 +9,8 @@ class PPERequester_EyeAdapt extends PPERequester_GameplayBase
 	static const int L_TINT = 250;      // colorization: between toxic tint (200) and heavy metal poisoning (300)
 	static const int L_OVERLAY_F = 350; // overlay factor: between flashbang (300) and shock (500), HIGHEST
 	static const int L_OVERLAY_C = 550; // overlay colour: above flashbang (500). We yield while a flashbang runs anyway
+	static const int L_GRAIN = 300;     // film grain: above NVG (100) and toxic tint (200). We yield to NVG anyway
+	static const int L_NOISE = 150;     // NV noise multiplier (needed for grain to show): HIGHEST, so NVG's own value wins
 
 	// Our values would replace or fight the NVG and flashbang look, so step aside while they run
 	protected const ref array<typename> YIELD_TO = {
@@ -21,12 +23,13 @@ class PPERequester_EyeAdapt extends PPERequester_GameplayBase
 	// Last applied colours; colour setters always resend, so skip unchanged values ourselves
 	protected vector m_LastTint = TINT_NEUTRAL;
 	protected float m_LastOverlay;
+	protected float m_LastGrain;
 
 	// ev: extra exposure in EV stops. saturation: 1 = vanilla, 0 = grey.
 	// contrast: 1 = vanilla (range 0..2). tint: colour multiplier, TINT_NEUTRAL = vanilla.
-	// overlay: white haze for glare, 0 = none.
+	// overlay: white haze for glare, 0 = none. grain: film grain intensity 0..1, 0 = none.
 	// Neutral values release the parameter, so the vanilla look is untouched.
-	void Apply(float ev, float saturation, float contrast, vector tint, float overlay = 0)
+	void Apply(float ev, float saturation, float contrast, vector tint, float overlay = 0, float grain = 0)
 	{
 		if (PPEManagerStatic.GetPPEManager().IsAnyRequesterRunning(YIELD_TO))
 		{
@@ -35,6 +38,7 @@ class PPERequester_EyeAdapt extends PPERequester_GameplayBase
 			contrast = 1;
 			tint = TINT_NEUTRAL;
 			overlay = 0;
+			grain = 0;
 		}
 
 		if (ev <= 0.001)
@@ -78,6 +82,33 @@ class PPERequester_EyeAdapt extends PPERequester_GameplayBase
 				SetTargetValueColor(PostProcessEffectType.Glow, PPEGlow.PARAM_OVERLAYCOLOR, {1.0, 1.0, 1.0, 1.0}, L_OVERLAY_C, PPOperators.SET);
 			}
 		}
+
+		ApplyGrain(grain);
+	}
+
+	// Film grain only shows with a non-zero NV noise multiplier (vanilla comment in ppefilmgrain.c). Resent only when the value changes
+	protected void ApplyGrain(float grain)
+	{
+		grain = Math.Round(Math.Clamp(grain, 0, 1) * 200) / 200;
+		if (grain == m_LastGrain)
+			return;
+
+		m_LastGrain = grain;
+		if (grain <= 0)
+		{
+			SetTargetValueFloatDefault(PostProcessEffectType.FilmGrain, PPEFilmGrain.PARAM_INTENSITY);
+			SetTargetValueFloatDefault(PostProcessEffectType.FilmGrain, PPEFilmGrain.PARAM_GRAINSIZE);
+			SetTargetValueFloatDefault(PostProcessEffectType.FilmGrain, PPEFilmGrain.PARAM_FREQUENCY);
+			SetTargetValueFloatDefault(PPEExceptions.NVLIGHTPARAMS, PPELightIntensityParamsNative.PARAM_NOISE_MULT);
+		}
+		else
+		{
+			EyeAdaptSettings cfg = EyeAdaptSettings.Get();
+			SetTargetValueFloat(PostProcessEffectType.FilmGrain, PPEFilmGrain.PARAM_INTENSITY, false, grain, L_GRAIN, PPOperators.HIGHEST);
+			SetTargetValueFloat(PostProcessEffectType.FilmGrain, PPEFilmGrain.PARAM_GRAINSIZE, false, Math.Clamp(cfg.NightGrainSize, 1, 9), L_GRAIN, PPOperators.SET);
+			SetTargetValueFloat(PostProcessEffectType.FilmGrain, PPEFilmGrain.PARAM_FREQUENCY, false, Math.Clamp(cfg.NightGrainFrequency, 1, 1000), L_GRAIN, PPOperators.SET);
+			SetTargetValueFloat(PPEExceptions.NVLIGHTPARAMS, PPELightIntensityParamsNative.PARAM_NOISE_MULT, false, 1.0, L_NOISE, PPOperators.HIGHEST);
+		}
 	}
 
 	// Vanilla Stop() releases all our values, so the cached tint must be forgotten too
@@ -86,6 +117,7 @@ class PPERequester_EyeAdapt extends PPERequester_GameplayBase
 		super.OnStop(par);
 		m_LastTint = TINT_NEUTRAL;
 		m_LastOverlay = 0;
+		m_LastGrain = 0;
 	}
 }
 

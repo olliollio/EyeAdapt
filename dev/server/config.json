@@ -1,5 +1,5 @@
 {
-    "Version": 17,
+    "Version": 18,
     "Enabled": 1,
     "AdaptationMode": "relativeToNight",
     "FullAdaptSeconds": 240.0,
@@ -147,6 +147,10 @@
     "ColorReturnSmoothSeconds": 0.5,
     "MaxContrastBoost": 0.15000000596046449,
     "BlueShift": 0.10000000149011612,
+    "NightGrain": 0.3,
+    "NightGrainSize": 2.75,
+    "NightGrainFrequency": 20.0,
+    "NightSoftness": 0.0,
     "GlareStrength": 1.0,
     "GlareViewPower": 8.0,
     "GlareBloomIntensity": 2.0,
