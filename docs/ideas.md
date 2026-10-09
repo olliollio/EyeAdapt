@@ -19,6 +19,10 @@ Idea: multiply it by how much the camera looks along the car (`Lerp(ViewMinFacto
 - Edge case, costs a few `SurfaceY`/`SurfaceGetType` calls per visible light per scan.
 - Decision (2026-10-09): keep for now, candidate for removal at release prep / performance check.
 
-## Light table replaces car light settings
+## Short flashes (explosions, flashbang, fireworks)
 
-`CarLightFactor` / `CarLightRange` are hard-wired to `CarLightBase` (minus rear lights). Once the light table (Claude.md §12 step 2) exists, they become default table entries with a per-class range.
+`ExplosiveLight`, `ShellLight`, `FlashGrenadeLight`, `ExplosionLight` live only 0.15-0.35 s, so the 0.25 s light scan often misses them. A real blast at night costs night vision.
+
+- Fix would be a hook when such a light is created (registry `EOnInit`): compute its dose once and apply it as a short dose spike.
+- The flashbang already has its own vanilla white-out.
+- Decision (2026-10-09): edge case, not built.
