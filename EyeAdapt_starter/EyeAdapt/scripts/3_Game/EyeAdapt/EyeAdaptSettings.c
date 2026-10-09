@@ -6,8 +6,8 @@
 // Bump CURRENT_VERSION (and the Version default) whenever fields are added, so existing files get the new keys.
 class EyeAdaptSettings
 {
-	static const int CURRENT_VERSION = 9;
-	int Version = 9;
+	static const int CURRENT_VERSION = 10;
+	int Version = 10;
 	bool Enabled = true;
 
 	// Adaptation curve: fast stage (pupil/cones) + slow stage (rods), each ~95 % after its time.
@@ -41,10 +41,24 @@ class EyeAdaptSettings
 	float OwnLightFactor = 0.1;            // own spot light (flashlight/headtorch/weapon light). Own point lights (torch, chemlight) count by distance
 	float RedLightFactor = 0.15;           // red light barely affects night vision
 	float NightVisionDose = 0.5;           // powered NVG/NV scope counts as this dose, 0 = free
+	float OwnVehicleLightDose = 0.5;       // sitting in a car with its headlights on (you look at the lit road): at least this dose, 0 = free
+	float CarLightFactor = 5.0;            // other cars' headlights count this much stronger (bright, focused beam). Rear lights excluded
+	float CarLightRange = 70.0;            // other cars' headlights count up to this distance (other lights: ScanRadius)
+	                                       // With factor 5, centred headlights glare dark-adapted eyes from ~50-70 m
 	bool UseOcclusion = true;
 	float OccludedFactor = 0.15;           // light behind walls/terrain
 	float VegetationOccludedFactor = 0.5;  // light behind trees/bushes
 	float OcclusionEndOffset = 0.5;        // ray stops this far before the light
+	// Grass is GPU clutter without geometry, raycasts pass through it. Instead the line eye -> light is sampled:
+	// where it runs through grass (lower above the ground than the grass is tall), the light counts as partly hidden.
+	// Surfaces count as grass when their name contains "grass" (all vanilla maps), "tall" in the name = tall grass
+	bool UseGrassOcclusion = true;
+	float GrassOccludedFactor = 0.3;       // light seen through grass
+	float GrassHeight = 0.5;               // metres
+	float TallGrassHeight = 1.0;
+	float GrassSampleStep = 2.0;           // metres between samples along the line
+	float GrassSkipNearEye = 1.0;          // grass at your own feet doesn't count
+	float GrassSkipNearLight = 3.0;        // grass right at the light doesn't count (headlights always sit in it)
 
 	// Night gate (hours relative to the map's sunrise/sunset)
 	float DuskOffsetHours = 0.0;
@@ -82,7 +96,8 @@ class EyeAdaptSettings
 	float GlareTriggerLevel = 0.3;         // blowout starts when the adaptation lags this far behind the light in view (0..1)
 	float GlareHoldSeconds = 0.6;          // blowout: fully blown out ("hurts", you can't see much)
 	float GlareFadeSeconds = 1.0;          // blowout: fade into the glow phase
-	float GlareCooldownSeconds = 2.0;      // no new blowout right after one (no strobe when turning back and forth)
+	float GlareRecoverySeconds = 30.0;     // after a blowout or dazzle, the next one is weaker: 0 right after it ended,
+	                                       // full again after this long (eyes just blinded are less sensitive). 0 = off
 	float GlowFadeSeconds = 6.0;           // glow phase: halo ~95 % gone after this
 	float GlareEvBoost = 6.0;              // blowout: extra EV stops
 	float GlareContrastLoss = 0.3;         // blowout: contrast reduction (detail loss)
@@ -95,7 +110,10 @@ class EyeAdaptSettings
 	float DazzleThreshold = 0.3;           // how strong the beam in the face must be (flashlight centred: ~7 m with defaults)
 	float DazzleHoldSeconds = 1.0;         // full white-out (vanilla flashbang: ~5.5 s)
 	float DazzleFadeSeconds = 2.0;         // fade back to normal (vanilla flashbang: ~2.5 s)
-	float DazzleCooldownSeconds = 3.0;     // immune after a dazzle, so a lamp held on someone can't blind them permanently
+	float DazzleRearmSeconds = 2.0;        // after a dazzle the beam must be out of your face this long before the next one
+	                                       // (a lamp held on you dazzles once, your eyes have adjusted to it)
+	float DazzleMinAdaptation = 0.3;       // no dazzle below this strength. Strength = adaptation × glare recovery
+	                                       // (fully dark-adapted = full white-out, light-adapted eyes barely notice)
 	float DazzleOverlay = 0.9;             // white-out strength (vanilla flashbang: 1.0)
 	float DazzleEvBoost = 5.0;             // extra EV stops at full dazzle
 
