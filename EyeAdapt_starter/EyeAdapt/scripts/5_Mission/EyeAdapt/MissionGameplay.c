@@ -178,7 +178,10 @@ modded class MissionGameplay
 		ev += m_EyeAdaptDazzle * cfg.DazzleEvBoost;
 		overlay = Math.Max(overlay, m_EyeAdaptDazzle * cfg.DazzleOverlay);
 
-		m_EyeAdaptPPE.Apply(ev, saturation, contrast, tint, overlay);
+		// Optional film grain: rod vision only (none near light, none in daylight)
+		float grain = rodVision * cfg.NightGrain;
+
+		m_EyeAdaptPPE.Apply(ev, saturation, contrast, tint, overlay, grain);
 	}
 
 	// Glare in two phases (CLAUDE.md §3.4), both only for dark-adapted eyes facing light in the view centre:
@@ -254,8 +257,13 @@ modded class MissionGameplay
 
 		m_EyeAdaptGlarePeak = Math.Max(m_EyeAdaptGlarePeak, m_EyeAdaptGlare);
 
-		// Halo around bright light, set on the glow material directly (see EyeAdaptBloom)
-		EyeAdaptBloom.Apply(m_EyeAdaptGlow);
+		// Optional soft look of rod vision (bloom, no blur), off with night vision. Same rod vision as the desaturation
+		float soft = 0;
+		if (!m_EyeAdaptNightVision)
+			soft = GetEyeAdaptStrength() * (1 - m_EyeAdaptColorDose) * cfg.NightSoftness;
+
+		// Halo around bright light and the soft look, set on the glow material directly (see EyeAdaptBloom)
+		EyeAdaptBloom.Apply(m_EyeAdaptGlow, soft);
 	}
 
 	// Shared by blowout and dazzle: 0 right after one ended, 1 after GlareRecoverySeconds (linear)

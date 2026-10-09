@@ -6,8 +6,8 @@
 // Bump CURRENT_VERSION (and the Version default) whenever fields are added, so existing files get the new keys.
 class EyeAdaptSettings
 {
-	static const int CURRENT_VERSION = 17;
-	int Version = 17;
+	static const int CURRENT_VERSION = 18;
+	int Version = 18;
 	bool Enabled = true;
 
 	// Adaptation curve: fast stage (pupil/cones) + slow stage (rods), each ~95 % after its time.
@@ -91,6 +91,11 @@ class EyeAdaptSettings
 	float ColorReturnSmoothSeconds = 0.5;  // smoothing of the colour return (the light scan runs every ScanInterval)
 	float MaxContrastBoost = 0.15;         // counters the grey/foggy look of a strong EV boost
 	float BlueShift = 0.1;                 // Purkinje effect, 0 = off
+	// Optional extras, off by default. Both scale with the rod vision (adaptation, less near light) and step aside for night vision
+	float NightGrain = 0.0;                // film grain at full adaptation, 0..1 (0 = off). Dark-adapted vision is noisy; also hurts gamma/brightness filter abuse
+	float NightGrainSize = 2.75;           // 1..9 (vanilla default 2.75)
+	float NightGrainFrequency = 20.0;      // 1..1000, how fast the grain changes ("visual snow")
+	float NightSoftness = 0.0;             // soft look at full adaptation, 0..1 (0 = off): rods see little detail. Done with bloom, not blur
 
 	// Glare: dark-adapted eyes facing sudden bright light (CLAUDE.md §3.4), in two phases:
 	// 1. blowout = fully blown out for GlareHoldSeconds, fades over GlareFadeSeconds: GlareEvBoost, GlareOverlay, GlareContrastLoss

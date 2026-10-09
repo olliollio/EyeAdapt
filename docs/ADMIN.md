@@ -66,6 +66,8 @@ If the file has a JSON error the server logs `config.json could not be read` and
 | Less grey, more colour | `MaxDesaturation` |
 | Light costs less or more | `DoseSensitivity`, `FalloffExponent`, or a light's `Factor` in the table |
 | Weaker or no glare | `GlareStrength` (0 = off) |
+| Noisy night image (optional) | `NightGrain` (0 = off), `NightGrainSize`, `NightGrainFrequency` |
+| Soft night image (optional) | `NightSoftness` (0 = off) |
 | Flashlight in the face blinds | `FlashlightDazzle: true` (off by default) |
 | Effect off entirely | `Enabled: false` |
 
@@ -187,6 +189,20 @@ At full NA (before ambient scaling):
 | Colour return smoothing | `ColorReturnSmoothSeconds` | 0.5 |
 
 Blur is not used. The mod does not simulate the blind spot in the centre of the view either, because it would make aiming feel broken.
+
+**Optional extras (both off by default).** They follow the rod vision, like the desaturation: strongest at full adaptation, fading near light, off in daylight and off while night vision is on.
+
+| Effect | Setting | Default | Meaning |
+|---|---|---|---|
+| Film grain | `NightGrain` | 0 (off) | Grain intensity at full adaptation, 0..1. Dark-adapted vision is noisy. The grain also makes gamma and brightness filters less useful for cheating. Start around 0.1–0.2 and look at it in game. |
+| | `NightGrainSize` | 2.75 | 1..9. Larger = coarser grain (vanilla default). |
+| | `NightGrainFrequency` | 20 | 1..1000. How fast the grain changes. High = a shimmering "visual snow", low = a calmer grain. |
+| Soft look | `NightSoftness` | 0 (off) | 0..1. Rods see little fine detail, so the image gets a soft glow at full adaptation. It is done with bloom (raised bloom, lowered threshold), not a blur filter, so aiming stays sharp. |
+
+Notes:
+- Vanilla film grain only shows when the engine's night-vision noise multiplier is non-zero. While grain is on, the mod sets that multiplier to 1 at a low priority. Real night vision (goggles and scopes) uses its own, higher value and is not changed.
+- If another mod already uses film grain at night (for example a lighting overhaul with `filmGrainIntensity`), the two add up. Lower `NightGrain` or leave it off.
+- Both effects are untested at this point. Tuning values are still to be found.
 
 ---
 
