@@ -13,13 +13,15 @@ modded class MissionGameplay
 	protected float m_EyeAdaptGlare;             // glare phase 1 (blowout envelope), 0..GlareStrength
 	protected float m_EyeAdaptGlareLevel;        // strength of the running blowout (set when it starts)
 	protected float m_EyeAdaptGlareTime = -1;    // seconds since the blowout started, -1 = none
-	protected float m_EyeAdaptGlareCooldown;     // seconds left until the next blowout can start
+	protected float m_EyeAdaptSinceGlare = 1e6;  // seconds since the last blowout/dazzle ended (shared recovery, GlareRecoverySeconds)
 	protected float m_EyeAdaptGlow;              // glare phase 2 (bloom halo fading out), 0..GlareStrength
 	protected float m_EyeAdaptGlarePeak;         // highest glare since the last log line (glare is shorter than the log interval)
 	protected bool m_EyeAdaptGlareTest;          // debug: force full glare
 	protected float m_EyeAdaptDazzle;            // optional flashlight dazzle, 0..1
+	protected float m_EyeAdaptDazzleLevel;       // strength of the running dazzle (set when it starts)
 	protected float m_EyeAdaptDazzleTime = -1;   // seconds since the dazzle started, -1 = none
-	protected float m_EyeAdaptDazzleCooldown;    // seconds left until the next dazzle can start
+	protected bool m_EyeAdaptDazzleArmed = true; // false after a dazzle until the beam was out of the face for DazzleRearmSeconds
+	protected float m_EyeAdaptDazzleClear;       // seconds the beam has been out of the face while disarmed
 	protected float m_EyeAdaptColorDose;         // light dose smoothed for the colour return
 	protected float m_EyeAdaptLogTimer;
 	protected bool m_EyeAdaptNightVision; // powered NVG/NV scope in use: counts as light (NIGHT_VISION_DOSE)
@@ -174,7 +176,8 @@ modded class MissionGameplay
 	// Glare in two phases (CLAUDE.md §3.4), both only for dark-adapted eyes facing light in the view centre:
 	// 1. Blowout: starts when the adaptation lags far enough behind the light (GlareTriggerLevel).
 	//    Fully blown out for GlareHoldSeconds, then fades over GlareFadeSeconds. Strength = the lag at the start,
-	//    so fully adapted = full white-out, half adapted = half. GlareCooldownSeconds prevents a strobe.
+	//    so fully adapted = full white-out, half adapted = half. Scaled by the shared glare recovery (no strobe,
+	//    no repeat at full strength while walking along a beam).
 	//    Uses the whole adaptation, not only the fast stage: the pupil alone closes within a second from any light
 	//    nearby, which made the blowout depend on how quickly you turned around.
 	// 2. Glow: how far the whole adaptation lags behind. Bloom halo that fades slowly (GlowFadeSeconds)
@@ -189,7 +192,7 @@ modded class MissionGameplay
 			float lightLevel = 1 - m_EyeAdaptDose.GetGlareDose();
 			float scale = cfg.GlareStrength * m_EyeAdaptNight;
 			glowTarget = Math.Clamp(m_EyeAdapt.Get() - lightLevel, 0, 1) * scale;
-			flashTarget = glowTarget;
+			flashTarget = glowTarget * GetEyeAdaptGlareRecovery();
 		}
 		if (m_EyeAdaptGlareTest)
 		{
@@ -197,10 +200,11 @@ modded class MissionGameplay
 			glowTarget = cfg.GlareStrength;
 		}
 
-		// Blowout envelope: hold, fade, cooldown
-		if (m_EyeAdaptGlareCooldown > 0)
-			m_EyeAdaptGlareCooldown -= timeslice;
+		// Shared recovery clock: runs while neither a blowout nor a dazzle is running
+		if (m_EyeAdaptGlareTime < 0 && m_EyeAdaptDazzleTime < 0)
+			m_EyeAdaptSinceGlare += timeslice;
 
+		// Blowout envelope: hold, fade
 		if (m_EyeAdaptGlareTime >= 0)
 		{
 			m_EyeAdaptGlareTime += timeslice;
@@ -217,12 +221,12 @@ modded class MissionGameplay
 			{
 				m_EyeAdaptGlare = 0;
 				m_EyeAdaptGlareTime = -1;
-				m_EyeAdaptGlareCooldown = cfg.GlareCooldownSeconds;
 			}
 		}
-		else if (m_EyeAdaptGlareCooldown <= 0 && flashTarget >= cfg.GlareTriggerLevel)
+		else if (flashTarget >= cfg.GlareTriggerLevel)
 		{
 			m_EyeAdaptGlareTime = 0;
+			m_EyeAdaptSinceGlare = 0;
 			m_EyeAdaptGlareLevel = Math.Clamp(flashTarget, 0, 1);
 			m_EyeAdaptGlare = m_EyeAdaptGlareLevel;
 		}
@@ -246,13 +250,34 @@ modded class MissionGameplay
 		EyeAdaptBloom.Apply(m_EyeAdaptGlow);
 	}
 
+	// Shared by blowout and dazzle: 0 right after one ended, 1 after GlareRecoverySeconds (linear)
+	protected float GetEyeAdaptGlareRecovery()
+	{
+		float seconds = EyeAdaptSettings.Get().GlareRecoverySeconds;
+		if (seconds <= 0)
+			return 1;
+
+		return Math.Clamp(m_EyeAdaptSinceGlare / seconds, 0, 1);
+	}
+
 	// Optional (server setting FlashlightDazzle): someone else's spot light in the face at night acts like a short
-	// flashbang white-out. Full for DazzleHoldSeconds, fades over DazzleFadeSeconds, then DazzleCooldownSeconds immunity
+	// flashbang white-out. Full for DazzleHoldSeconds, fades over DazzleFadeSeconds.
+	// The next dazzle also needs the beam out of the face for DazzleRearmSeconds, so a lamp held on you dazzles only once.
+	// Strength = adaptation × shared glare recovery at the start, none below DazzleMinAdaptation
 	protected void UpdateEyeAdaptDazzle(float timeslice)
 	{
 		EyeAdaptSettings cfg = EyeAdaptSettings.Get();
-		if (m_EyeAdaptDazzleCooldown > 0)
-			m_EyeAdaptDazzleCooldown -= timeslice;
+		bool beamInFace = m_EyeAdaptDose.GetDazzleLight() >= cfg.DazzleThreshold;
+		if (!m_EyeAdaptDazzleArmed)
+		{
+			if (beamInFace)
+				m_EyeAdaptDazzleClear = 0;
+			else
+				m_EyeAdaptDazzleClear += timeslice;
+
+			if (m_EyeAdaptDazzleClear >= cfg.DazzleRearmSeconds)
+				m_EyeAdaptDazzleArmed = true;
+		}
 
 		if (m_EyeAdaptDazzleTime >= 0)
 		{
@@ -260,17 +285,16 @@ modded class MissionGameplay
 			float fadeTime = m_EyeAdaptDazzleTime - cfg.DazzleHoldSeconds;
 			if (fadeTime <= 0)
 			{
-				m_EyeAdaptDazzle = 1;
+				m_EyeAdaptDazzle = m_EyeAdaptDazzleLevel;
 			}
 			else if (cfg.DazzleFadeSeconds > 0 && fadeTime < cfg.DazzleFadeSeconds)
 			{
-				m_EyeAdaptDazzle = 1 - fadeTime / cfg.DazzleFadeSeconds;
+				m_EyeAdaptDazzle = m_EyeAdaptDazzleLevel * (1 - fadeTime / cfg.DazzleFadeSeconds);
 			}
 			else
 			{
 				m_EyeAdaptDazzle = 0;
 				m_EyeAdaptDazzleTime = -1;
-				m_EyeAdaptDazzleCooldown = cfg.DazzleCooldownSeconds;
 			}
 			return;
 		}
@@ -278,14 +302,21 @@ modded class MissionGameplay
 		m_EyeAdaptDazzle = 0;
 		if (!cfg.FlashlightDazzle || !cfg.Enabled || m_EyeAdaptBypass || m_EyeAdaptNightVision)
 			return;
-		if (m_EyeAdaptNight < 0.5 || m_EyeAdaptDazzleCooldown > 0)
+		if (m_EyeAdaptNight < 0.5 || !m_EyeAdaptDazzleArmed)
 			return;
 
-		if (m_EyeAdaptDose.GetDazzleLight() >= cfg.DazzleThreshold)
+		// Only dark-adapted eyes get blinded, and the more adapted, the harder (CLAUDE.md §3.4).
+		// Weaker shortly after the last blowout/dazzle (shared recovery)
+		float strength = m_EyeAdapt.Get() * GetEyeAdaptGlareRecovery();
+		if (beamInFace && strength >= cfg.DazzleMinAdaptation)
 		{
 			m_EyeAdaptDazzleTime = 0;
-			m_EyeAdaptDazzle = 1;
-			Print(string.Format("[EyeAdapt] dazzled by a flashlight (beam %1)", m_EyeAdaptDose.GetDazzleLight()));
+			m_EyeAdaptSinceGlare = 0;
+			m_EyeAdaptDazzleLevel = strength;
+			m_EyeAdaptDazzle = strength;
+			m_EyeAdaptDazzleArmed = false;
+			m_EyeAdaptDazzleClear = 0;
+			Print(string.Format("[EyeAdapt] dazzled by a flashlight (beam %1, strength %2)", m_EyeAdaptDose.GetDazzleLight(), strength));
 		}
 	}
 
@@ -342,11 +373,47 @@ modded class MissionGameplay
 				player.MessageImportant("[EyeAdapt] glare test OFF");
 		}
 
+		if (EyeAdaptKeyPressed(EyeAdaptConfig.KEY_CAR_LIGHTS))
+		{
+			CarScript car = FindNearestEyeAdaptCar(player);
+			if (!car)
+				player.MessageImportant(string.Format("[EyeAdapt] no car within %1 m", EyeAdaptConfig.CAR_LIGHTS_SEARCH_RADIUS));
+			else if (car.EyeAdapt_ToggleTestHeadlights())
+				player.MessageImportant("[EyeAdapt] test headlights ON: " + car.GetType());
+			else
+				player.MessageImportant("[EyeAdapt] test headlights OFF: " + car.GetType());
+		}
+
 		if (EyeAdaptKeyPressed(EyeAdaptConfig.KEY_LIGHTS))
 		{
 			m_EyeAdaptDose.Scan(true);
 			player.MessageImportant(string.Format("[EyeAdapt] dose %1, strongest %2 - details in script log", m_EyeAdaptDose.Get(), m_EyeAdaptDose.GetStrongestName()));
 		}
+	}
+
+	// Debug only: one world query on a key press, so the radius cost doesn't matter
+	protected CarScript FindNearestEyeAdaptCar(PlayerBase player)
+	{
+		array<Object> objects = new array<Object>();
+		array<CargoBase> proxies = new array<CargoBase>();
+		g_Game.GetObjectsAtPosition(player.GetPosition(), EyeAdaptConfig.CAR_LIGHTS_SEARCH_RADIUS, objects, proxies);
+
+		CarScript nearest;
+		float nearestDist = float.MAX;
+		foreach (Object obj : objects)
+		{
+			CarScript car = CarScript.Cast(obj);
+			if (!car)
+				continue;
+
+			float dist = vector.Distance(player.GetPosition(), car.GetPosition());
+			if (dist < nearestDist)
+			{
+				nearestDist = dist;
+				nearest = car;
+			}
+		}
+		return nearest;
 	}
 
 	// True once per key press (ClearKey suppresses auto-repeat until the key is released)

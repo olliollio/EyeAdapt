@@ -88,4 +88,4 @@ On the second PC the existing `serverDZ.cfg` and chernarus `globals.xml` were ba
 
 - Judge night visuals in **fullscreen**. On the first PC windowed mode lifted the blacks (might differ on yours, compare once).
 - The client must run through `DayZ_BE.exe` (BattlEye), plain `DayZ_x64.exe` gets kicked.
-- Debug keys (no menu open): Numpad 1 / 3 = adaptation 0 / 1, Numpad 7 = effect on/off, Numpad 9 = light list in the log, Numpad * = full glare test.
+- Debug keys (no menu open): Numpad 1 / 3 = adaptation 0 / 1, Numpad 7 = effect on/off, Numpad 9 = light list in the log, Numpad * = full glare test, Numpad / = test headlights on the nearest car.

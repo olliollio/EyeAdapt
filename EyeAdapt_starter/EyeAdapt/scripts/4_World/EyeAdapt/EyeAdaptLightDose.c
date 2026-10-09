@@ -57,6 +57,9 @@ class EyeAdaptLightDose
 		m_StrongestName = "";
 		m_StrongestDose = 0;
 
+		// The car we sit in: its lights don't shine at us, they light up the road ahead (handled after the loop)
+		CarScript ownCar = GetOwnCar(player);
+
 		array<ScriptedLightBase> lights = ScriptedLightBase.s_EyeAdaptLights;
 		for (int i = lights.Count() - 1; i >= 0; i--)
 		{
@@ -66,6 +69,9 @@ class EyeAdaptLightDose
 				lights.Remove(i);
 				continue;
 			}
+
+			if (ownCar && light.GetAttachmentParent() == ownCar)
+				continue;
 
 			float glare;
 			bool foreignSpot;
@@ -89,6 +95,14 @@ class EyeAdaptLightDose
 		m_Dose = 1 - Math.Pow(Math.EULER, -total * EyeAdaptSettings.Get().DoseSensitivity);
 		m_GlareDose = 1 - Math.Pow(Math.EULER, -glareTotal * EyeAdaptSettings.Get().DoseSensitivity);
 
+		// Driving with headlights on: looking at the lit road keeps the eyes partly light-adapted
+		if (ownCar && ownCar.m_Headlight && ownCar.m_Headlight.IsEnabled())
+		{
+			m_Dose = Math.Max(m_Dose, EyeAdaptSettings.Get().OwnVehicleLightDose);
+			if (verbose)
+				Print(string.Format("[EyeAdapt]   own car %1 headlights on | dose at least %2", ownCar.GetType(), EyeAdaptSettings.Get().OwnVehicleLightDose));
+		}
+
 		if (verbose)
 			Print(string.Format("[EyeAdapt] scan: %1 lights registered | raw dose %2 | saturated %3 | glare dose %4", m_LightCount, total, m_Dose, m_GlareDose));
 	}
@@ -102,13 +116,19 @@ class EyeAdaptLightDose
 		if (!light.IsEnabled())
 			return 0;
 
+		// Headlights (not rear lights) are bright, focused beams: longer range and stronger (CarLightRange/Factor)
+		bool isHeadlight = light.IsInherited(CarLightBase) && !light.IsInherited(CarRearLightBase);
+
 		// Distance first: cheapest cull, most registered lights are far away.
 		// The light's own radius is a natural cut-off (campfire 25 m, chemlight 7.5 m, headlights up to 100 m)
 		vector m[4];
 		light.GetTransform(m);
 		vector toLight = m[3] - eyePos;
 		float dist = toLight.Length();
-		if (dist > Math.Min(EyeAdaptSettings.Get().ScanRadius, light.m_Radius))
+		float range = EyeAdaptSettings.Get().ScanRadius;
+		if (isHeadlight)
+			range = EyeAdaptSettings.Get().CarLightRange;
+		if (dist > Math.Min(range, light.m_Radius))
 			return 0;
 
 		// Camera-following ambient fill and 10-80 ms muzzle flashes are not exposure sources
@@ -117,6 +137,8 @@ class EyeAdaptLightDose
 
 		// Nominal brightness: the field, not GetBrightness() (that one is ~100 × flicker, lights.md §2)
 		float intensity = light.m_Brightness * GetColorFactor(light);
+		if (isHeadlight)
+			intensity *= EyeAdaptSettings.Get().CarLightFactor;
 		if (intensity <= 0)
 			return 0;
 
@@ -207,7 +229,7 @@ class EyeAdaptLightDose
 		Object lightParent = light.GetAttachmentParent();
 
 		if (!DayZPhysics.RaycastRV(eyePos, endPos, contactPos, contactDir, contactComponent, hits, player, lightParent, false, false, ObjIntersectView))
-			return 1;
+			return GetGrassOcclusionFactor(eyePos, lightPos, blocker);
 
 		// Hit without an object = terrain (hill between us and the light)
 		if (hits.Count() == 0)
@@ -222,6 +244,45 @@ class EyeAdaptLightDose
 			return EyeAdaptSettings.Get().VegetationOccludedFactor;
 
 		return EyeAdaptSettings.Get().OccludedFactor;
+	}
+
+	// Grass has no geometry, so the free line of sight is sampled: where it runs lower above the ground than the
+	// grass there is tall (a small grassy crest between you and a car), the light is partly hidden.
+	// SurfaceY is cheap, the surface name is only read where the line is low enough to matter.
+	protected float GetGrassOcclusionFactor(vector eyePos, vector lightPos, out string blocker)
+	{
+		EyeAdaptSettings cfg = EyeAdaptSettings.Get();
+		if (!cfg.UseGrassOcclusion || cfg.GrassSampleStep <= 0)
+			return 1;
+
+		vector toLight = lightPos - eyePos;
+		float dist = toLight.Length();
+		float maxHeight = Math.Max(cfg.GrassHeight, cfg.TallGrassHeight);
+		for (float s = cfg.GrassSkipNearEye; s < dist - cfg.GrassSkipNearLight; s += cfg.GrassSampleStep)
+		{
+			vector p = eyePos + toLight * (s / dist);
+			float clearance = p[1] - g_Game.SurfaceY(p[0], p[2]);
+			if (clearance >= maxHeight)
+				continue;
+
+			string surface;
+			g_Game.SurfaceGetType(p[0], p[2], surface);
+			string name = surface;
+			name.ToLower();
+			if (!name.Contains("grass"))
+				continue;
+
+			float height = cfg.GrassHeight;
+			if (name.Contains("tall"))
+				height = cfg.TallGrassHeight;
+
+			if (clearance < height)
+			{
+				blocker = string.Format("grass %1 (%2 m above ground at %3 m)", surface, clearance, s);
+				return cfg.GrassOccludedFactor;
+			}
+		}
+		return 1;
 	}
 
 	// Flames look orange-red in RGB (fireplace 1.3/0.35/0.15 is "redder" than the red chemlight 1.0/0.3/0.2),
@@ -248,6 +309,20 @@ class EyeAdaptLightDose
 			return EyeAdaptSettings.Get().RedLightFactor;
 
 		return 1;
+	}
+
+	// Car the local player sits in (driver or passenger), null otherwise
+	protected CarScript GetOwnCar(Object player)
+	{
+		Human human = Human.Cast(player);
+		if (!human)
+			return null;
+
+		HumanCommandVehicle vehicleCommand = human.GetCommand_Vehicle();
+		if (vehicleCommand)
+			return CarScript.Cast(vehicleCommand.GetTransport());
+
+		return CarScript.Cast(human.GetParent());
 	}
 
 	// Headtorch on our head, flashlight in our hands, weapon light on our gun.

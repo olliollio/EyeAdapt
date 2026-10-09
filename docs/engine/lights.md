@@ -255,6 +255,7 @@ float CalcLightDose()
 | Tree (trunk/crown) | yes | `TreeHard_t_prunusDomestica_2s` (`IsTree()`) |
 | Bush | yes | `BushSoft_b_betulaHumilis_1s` (`IsBush()`) |
 | Fences (tested types) | **no**, ray passes | – |
+| Grass (clutter) | **no**, ray passes (2026-10-09: headlights behind a grassy crest still glared). Clutter is GPU-only, no geometry. EyeAdapt samples the line eye → light with `SurfaceY` + `SurfaceGetType` instead (`GetGrassOcclusionFactor`) | – |
 | Solid brick/concrete walls | untested | |
 
 EyeAdapt: walls/terrain → 15 %, trees/bushes → 50 % (`VEGETATION_OCCLUDED_FACTOR`).
