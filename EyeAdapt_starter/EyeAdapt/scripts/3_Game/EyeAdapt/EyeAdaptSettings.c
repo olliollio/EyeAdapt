@@ -6,8 +6,8 @@
 // Bump CURRENT_VERSION (and the Version default) whenever fields are added, so existing files get the new keys.
 class EyeAdaptSettings
 {
-	static const int CURRENT_VERSION = 11;
-	int Version = 11;
+	static const int CURRENT_VERSION = 13;
+	int Version = 13;
 	bool Enabled = true;
 
 	// Adaptation curve: fast stage (pupil/cones) + slow stage (rods), each ~95 % after its time.
@@ -145,7 +145,9 @@ class EyeAdaptSettings
 		lights.Insert(new EyeAdaptLightEntry("CarLightBase", 5, "auto", 70));
 		lights.Insert(new EyeAdaptLightEntry("CarRearLightBase", 1));
 		// Flare gun flares light up a whole area from the sky
-		lights.Insert(new EyeAdaptLightEntry("FlareLight", 10, "auto", 100));
+		lights.Insert(new EyeAdaptLightEntry("FlareLight", 10, "full", 100));
+		// Road flare is red but bright and broadband, it still bleaches the rods
+		lights.Insert(new EyeAdaptLightEntry("RoadflareLight", 1, "full"));
 		// Generator spotlight (radius 60 m)
 		lights.Insert(new EyeAdaptLightEntry("SpotlightLight", 1, "auto", 60));
 		return lights;

@@ -295,7 +295,7 @@ class EyeAdaptLightDose
 		return 1;
 	}
 
-	// Red light barely bleaches rhodopsin, so it barely costs night vision (red chemlight, red headtorch, road flare).
+	// Red light barely bleaches rhodopsin, so it barely costs night vision (red chemlight, red headtorch). Flares are set to "full" in the table: too bright to stay cheap.
 	// Table type "red" = always, "full" = never (flames: 1.3/0.35/0.15 is "redder" than the red chemlight 1.0/0.3/0.2,
 	// but broadband light that does bleach the rods), "auto" or no entry = by the light's colour
 	protected float GetColorFactor(ScriptedLightBase light, EyeAdaptLightEntry entry)
