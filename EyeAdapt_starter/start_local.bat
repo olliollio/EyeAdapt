@@ -7,6 +7,9 @@ set BUILD=P:\@EyeAdapt
 rem Mod is copied into both game folders and loaded by relative path
 rem (loading it straight from P:\ coincided with "Game restart required" kicks)
 set MOD=@EyeAdapt
+rem Signing: the PBO is re-signed on every start (Addon Builder doesn't always sign)
+set TOOLS=D:\SteamLibrary\steamapps\common\DayZ Tools
+set KEY=D:\DayZ-Mods\keys\EyeAdapt.biprivatekey
 rem Per-PC overrides (DAYZ, SERVER, BUILD, ...) go into paths.local.bat next to this file (gitignored)
 if exist "%~dp0paths.local.bat" call "%~dp0paths.local.bat"
 
@@ -21,6 +24,13 @@ set SERVERCFG=serverDZ.cfg
 taskkill /F /IM DayZServer_x64.exe /T >nul 2>&1
 taskkill /F /IM DayZ_x64.exe /T >nul 2>&1
 taskkill /F /IM DayZ_BE.exe /T >nul 2>&1
+
+if exist "%KEY%" (
+	"%TOOLS%\Bin\DsUtils\DSSignFile.exe" "%KEY%" "%BUILD%\Addons\EyeAdapt.pbo"
+	if errorlevel 1 echo WARNING: signing failed, the server will kick the client
+) else (
+	echo WARNING: private key not found: %KEY%
+)
 
 robocopy "%BUILD%" "%SERVER%\%MOD%" /MIR /NJH /NJS /NDL /NFL >nul
 robocopy "%BUILD%" "%DAYZ%\%MOD%" /MIR /NJH /NJS /NDL /NFL >nul

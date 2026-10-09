@@ -53,6 +53,7 @@ Then:
 - **Keys:** copy `EyeAdapt.bikey` into `<DayZServer>\keys\`. With VPP also `VPP.bikey` and `Jacob_Mango_V3.bikey` (CF) from the Workshop mods' `Keys` folders.
 - **Fast login:** in `<DayZServer>\mpmissions\dayzOffline.chernarusplus\db\globals.xml` set `TimeLogin` = 1, `TimeLogout` = 1, `TimePenalty` = 0.
 - **VPP admin:** after the first server start with VPP, put your Steam64 ID into `<DayZServer>\profiles\VPPAdminTools\Permissions\SuperAdmins\SuperAdmins.txt`.
+- **VPP password:** first line of `<DayZServer>\profiles\VPPAdminTools\Permissions\credentials.txt` (not `passwordAdmin`), then restart the server (VPP hashes it on startup).
 
 ## 7. Start script
 
@@ -61,7 +62,11 @@ Then:
 ```
 set DAYZ=D:\Steam\steamapps\common\DayZ
 set SERVER=D:\Steam\steamapps\common\DayZServer
+set TOOLS=D:\Steam\steamapps\common\DayZ Tools
+set KEY=G:\Dayz-Modding\keys\EyeAdapt.biprivatekey
 ```
+
+The start script re-signs `EyeAdapt.pbo` with `DSSignFile` (from `TOOLS`, key `KEY`) on every start, because Addon Builder doesn't always sign even with the key set.
 
 ## PCs in use
 
