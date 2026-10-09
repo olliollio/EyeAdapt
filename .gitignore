@@ -6,6 +6,9 @@
 *.pbo
 @EyeAdapt/
 
+# Per-PC paths for start_local.bat
+paths.local.bat
+
 # Logs
 *.log
 *.rpt
