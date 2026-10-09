@@ -1,5 +1,5 @@
 {
-    "Version": 11,
+    "Version": 13,
     "Enabled": 1,
     "AdaptationMode": "relativeToNight",
     "FullAdaptSeconds": 240.0,
@@ -89,8 +89,14 @@
         {
             "ClassName": "FlareLight",
             "Factor": 10.0,
-            "Type": "auto",
+            "Type": "full",
             "Range": 100.0
+        },
+        {
+            "ClassName": "RoadflareLight",
+            "Factor": 1.0,
+            "Type": "full",
+            "Range": 0.0
         },
         {
             "ClassName": "SpotlightLight",
