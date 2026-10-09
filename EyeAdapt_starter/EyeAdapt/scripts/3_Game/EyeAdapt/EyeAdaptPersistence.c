@@ -184,6 +184,8 @@ class EyeAdaptStore
 class EyeAdaptClient
 {
 	static float s_PendingRestore = -1;
+	// Set when vanilla decided the local player is hit by a flash grenade (range + line of sight), consumed by the mission tick
+	static bool s_FlashbangHit;
 
 	// Client -> server
 	static void Report(float adaptation)

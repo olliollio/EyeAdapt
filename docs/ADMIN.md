@@ -320,12 +320,13 @@ These use the default (Factor 1, `"auto"`, own radius). Colour decides whether t
 
 - **`PersonalLight` is always ignored.** It is a weak fill light that follows the player's camera. If it counted, every player would permanently be lit. This is separate from the vanilla `disablePersonalLight` setting in `serverDZ.cfg`, which still works as before.
 - **Night vision (NV goggles and scopes)** is not a light. Powered goggles cost `NightVisionDose` (default 0.5, both eyes), a powered NV scope costs `NightVisionScopeDose` (default 0.25, only the aiming eye). `0` makes it free. Either way, glare and dazzle stay off while NV is on.
+- **Flash grenade hit.** The grenade's light lives only 0.35 s, which the light scan could miss. So the mod does not rely on the scan: when vanilla decides the player is hit (in range and with line of sight to the head), NA is reduced by `FlashbangAdaptationLoss` (default 1.0 = back to zero, 0 = off). The white-out and the ringing are vanilla's. After that NA recovers normally in the dark. `FlashGrenadeLight` is not in the light table.
 - **Sitting in a car with its headlights on** costs at least `OwnVehicleLightDose` (default 0.5), because you look at the lit road. Your own headlights are not treated as a light in your face.
 - **Debug and glare rules** such as `GlareViewPower` and the trigger levels are normal settings, not table entries.
 
 ### 5.6 Known limits
 
-- **Very short flashes are not detected.** Explosions, grenades, flashbangs and gas shells (`ExplosiveLight`, `ShellLight`, `FlashGrenadeLight`) live only 0.15–0.35 s, so the 0.25 s scan often misses them. They are not in the table. A fix is planned. Fireworks (`ExplosionLight`) last 2.1 s and are handled.
+- **Very short flashes are not detected.** Explosions, grenades and gas shells (`ExplosiveLight`, `ShellLight`) live only 0.15–0.35 s, so the 0.25 s scan often misses them. They are not in the table. A fix is planned. Flash grenades are handled separately (see section 5.5). Fireworks (`ExplosionLight`) last 2.1 s and are handled.
 - **Lights that only exist as glowing textures** (street lamps and lit windows on vanilla maps) are not lights in the game, so they cannot be detected and do not cost night vision. This matches vanilla, where they light nothing.
 - **Config-only lights** (the pumpkin helmet) are not scripted lights and are not seen by the mod.
 - **Modded maps and items** that use their own light classes work, but need a table entry if they should count differently from the default.

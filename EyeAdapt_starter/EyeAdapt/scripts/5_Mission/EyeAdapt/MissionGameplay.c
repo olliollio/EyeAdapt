@@ -63,6 +63,15 @@ modded class MissionGameplay
 			EyeAdaptClient.s_PendingRestore = -1;
 		}
 
+		// Flash grenade hit: the eyes are blinded, night vision is gone (the visual white-out is vanilla's)
+		if (EyeAdaptClient.s_FlashbangHit)
+		{
+			EyeAdaptClient.s_FlashbangHit = false;
+			float loss = Math.Clamp(EyeAdaptSettings.Get().FlashbangAdaptationLoss, 0, 1);
+			m_EyeAdapt.Set(m_EyeAdapt.Get() * (1 - loss));
+			Print(string.Format("[EyeAdapt] flash grenade hit, adaptation -> %1", m_EyeAdapt.Get()));
+		}
+
 		if (EyeAdaptSettings.Get().DebugKeys)
 			UpdateEyeAdaptDebugKeys(player);
 

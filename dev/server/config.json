@@ -1,5 +1,5 @@
 {
-    "Version": 15,
+    "Version": 16,
     "Enabled": 1,
     "AdaptationMode": "relativeToNight",
     "FullAdaptSeconds": 240.0,
@@ -24,6 +24,7 @@
     "RedLightFactor": 0.15000000596046449,
     "NightVisionDose": 0.5,
     "NightVisionScopeDose": 0.25,
+    "FlashbangAdaptationLoss": 1.0,
     "OwnVehicleLightDose": 0.5,
     "Lights": [
         {
