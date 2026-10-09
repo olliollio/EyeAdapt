@@ -19,24 +19,39 @@ class EyeAdaptEnvironment
 	}
 
 	// True while the player looks through powered night vision (goggles or NV scope).
-	// The bright image costs dark adaptation (NIGHT_VISION_DOSE). Unpowered goggles (NV_GOGGLES_OFF)
-	// show almost nothing, so the eyes keep adapting to the dark.
+	// Unpowered goggles (NV_GOGGLES_OFF) and day modes don't count
 	static bool IsNightVisionActive(PlayerBase player)
+	{
+		return IsNightVisionGoggles(player) || IsNightVisionScope(player);
+	}
+
+	// The bright image costs dark adaptation: goggles cover both eyes (NightVisionDose),
+	// a scope only the aiming eye (NightVisionScopeDose)
+	static float GetNightVisionDose(PlayerBase player)
+	{
+		if (IsNightVisionGoggles(player))
+			return EyeAdaptSettings.Get().NightVisionDose;
+		if (IsNightVisionScope(player))
+			return EyeAdaptSettings.Get().NightVisionScopeDose;
+		return 0;
+	}
+
+	static bool IsNightVisionGoggles(PlayerBase player)
 	{
 		if (!player)
 			return false;
 
-		switch (player.GetNVType())
-		{
-			case NVTypes.NV_GOGGLES:
-			case NVTypes.NV_GOGGLES_2D:
-			case NVTypes.NV_OPTICS_ON:
-			case NVTypes.NV_OPTICS_KAZUAR_NIGHT:
-			case NVTypes.NV_OPTICS_STARLIGHT_NIGHT:
-				return true;
-		}
+		int type = player.GetNVType();
+		return type == NVTypes.NV_GOGGLES || type == NVTypes.NV_GOGGLES_2D;
+	}
 
-		return false;
+	static bool IsNightVisionScope(PlayerBase player)
+	{
+		if (!player)
+			return false;
+
+		int type = player.GetNVType();
+		return type == NVTypes.NV_OPTICS_ON || type == NVTypes.NV_OPTICS_KAZUAR_NIGHT || type == NVTypes.NV_OPTICS_STARLIGHT_NIGHT;
 	}
 
 	// Natural night light 0..1 relative to a clear full-moon night

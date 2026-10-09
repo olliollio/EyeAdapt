@@ -116,8 +116,22 @@ class EyeAdaptLightDose
 		if (!light.IsEnabled())
 			return 0;
 
-		// Headlights (not rear lights) are bright, focused beams: longer range and stronger (CarLightRange/Factor)
-		bool isHeadlight = light.IsInherited(CarLightBase) && !light.IsInherited(CarRearLightBase);
+		// Camera-following ambient fill, never an exposure source (not in the table, admins can't switch it on)
+		if (light.IsInherited(PersonalLight))
+			return 0;
+
+		// Per-class factor, red handling and range from the light table (cached per class)
+		EyeAdaptLightEntry entry = EyeAdaptSettings.Get().FindLight(light.Type());
+		float factor = 1;
+		float range = EyeAdaptSettings.Get().ScanRadius;
+		if (entry)
+		{
+			factor = entry.Factor;
+			if (entry.Range > 0)
+				range = entry.Range;
+		}
+		if (factor <= 0)
+			return 0;
 
 		// Distance first: cheapest cull, most registered lights are far away.
 		// The light's own radius is a natural cut-off (campfire 25 m, chemlight 7.5 m, headlights up to 100 m)
@@ -125,20 +139,11 @@ class EyeAdaptLightDose
 		light.GetTransform(m);
 		vector toLight = m[3] - eyePos;
 		float dist = toLight.Length();
-		float range = EyeAdaptSettings.Get().ScanRadius;
-		if (isHeadlight)
-			range = EyeAdaptSettings.Get().CarLightRange;
 		if (dist > Math.Min(range, light.m_Radius))
 			return 0;
 
-		// Camera-following ambient fill and 10-80 ms muzzle flashes are not exposure sources
-		if (light.IsInherited(PersonalLight) || light.IsInherited(MuzzleFlashLight))
-			return 0;
-
 		// Nominal brightness: the field, not GetBrightness() (that one is ~100 × flicker, lights.md §2)
-		float intensity = light.m_Brightness * GetColorFactor(light);
-		if (isHeadlight)
-			intensity *= EyeAdaptSettings.Get().CarLightFactor;
+		float intensity = light.m_Brightness * factor * GetColorFactor(light, entry);
 		if (intensity <= 0)
 			return 0;
 
@@ -202,7 +207,12 @@ class EyeAdaptLightDose
 		foreignSpot = isSpot && !isOwnSpot && glare > 0;
 
 		if (verbose)
-			Print(string.Format("[EyeAdapt]   %1 | dose %2 | brightness %3 | radius %4 | spot %5 | own %6 | blocked by '%7'", light.ClassName(), d, light.m_Brightness, light.m_Radius, isSpot, IsOwnLight(light, player), blocker));
+		{
+			string tableEntry = "none";
+			if (entry)
+				tableEntry = string.Format("%1 x%2 %3", entry.ClassName, entry.Factor, entry.Type);
+			Print(string.Format("[EyeAdapt]   %1 | dose %2 | brightness %3 | radius %4 | spot %5 | own %6 | blocked by '%7' | table %8 | %9 m", light.ClassName(), d, light.m_Brightness, light.m_Radius, isSpot, IsOwnLight(light, player), blocker, tableEntry, dist));
+		}
 
 		return d;
 	}
@@ -285,24 +295,15 @@ class EyeAdaptLightDose
 		return 1;
 	}
 
-	// Flames look orange-red in RGB (fireplace 1.3/0.35/0.15 is "redder" than the red chemlight 1.0/0.3/0.2),
-	// but they are broadband light and do bleach the rods, so they never get the red discount
-	protected const ref array<typename> FLAME_LIGHTS = {
-		FireplaceLight,
-		BonfireLight,
-		TirePileLight,
-		TorchLight,
-		PortableGasLampLight
-	};
-
-	// Red light barely bleaches rhodopsin, so it barely costs night vision (red chemlight, red headtorch, road flare)
-	protected float GetColorFactor(ScriptedLightBase light)
+	// Red light barely bleaches rhodopsin, so it barely costs night vision (red chemlight, red headtorch, road flare).
+	// Table type "red" = always, "full" = never (flames: 1.3/0.35/0.15 is "redder" than the red chemlight 1.0/0.3/0.2,
+	// but broadband light that does bleach the rods), "auto" or no entry = by the light's colour
+	protected float GetColorFactor(ScriptedLightBase light, EyeAdaptLightEntry entry)
 	{
-		foreach (typename flame : FLAME_LIGHTS)
-		{
-			if (light.IsInherited(flame))
-				return 1;
-		}
+		if (entry && entry.Type == "full")
+			return 1;
+		if (entry && entry.Type == "red")
+			return EyeAdaptSettings.Get().RedLightFactor;
 
 		vector c = light.GetDiffuseColorV();
 		if (c[0] > 0 && c[1] < c[0] * 0.35 && c[2] < c[0] * 0.35)

@@ -1,5 +1,5 @@
 {
-    "Version": 10,
+    "Version": 11,
     "Enabled": 1,
     "AdaptationMode": "relativeToNight",
     "FullAdaptSeconds": 240.0,
@@ -23,9 +23,82 @@
     "OwnLightFactor": 0.10000000149011612,
     "RedLightFactor": 0.15000000596046449,
     "NightVisionDose": 0.5,
+    "NightVisionScopeDose": 0.25,
     "OwnVehicleLightDose": 0.5,
-    "CarLightFactor": 5.0,
-    "CarLightRange": 70.0,
+    "Lights": [
+        {
+            "ClassName": "MuzzleFlashLight",
+            "Factor": 0.0,
+            "Type": "auto",
+            "Range": 0.0
+        },
+        {
+            "ClassName": "MuzzleFlashLight_1",
+            "Factor": 0.0,
+            "Type": "auto",
+            "Range": 0.0
+        },
+        {
+            "ClassName": "MuzzleFlashLight_2",
+            "Factor": 0.0,
+            "Type": "auto",
+            "Range": 0.0
+        },
+        {
+            "ClassName": "FireplaceLight",
+            "Factor": 1.0,
+            "Type": "full",
+            "Range": 0.0
+        },
+        {
+            "ClassName": "BonfireLight",
+            "Factor": 1.0,
+            "Type": "full",
+            "Range": 0.0
+        },
+        {
+            "ClassName": "TirePileLight",
+            "Factor": 1.0,
+            "Type": "full",
+            "Range": 0.0
+        },
+        {
+            "ClassName": "TorchLight",
+            "Factor": 1.0,
+            "Type": "full",
+            "Range": 0.0
+        },
+        {
+            "ClassName": "PortableGasLampLight",
+            "Factor": 1.0,
+            "Type": "full",
+            "Range": 0.0
+        },
+        {
+            "ClassName": "CarLightBase",
+            "Factor": 5.0,
+            "Type": "auto",
+            "Range": 70.0
+        },
+        {
+            "ClassName": "CarRearLightBase",
+            "Factor": 1.0,
+            "Type": "auto",
+            "Range": 0.0
+        },
+        {
+            "ClassName": "FlareLight",
+            "Factor": 10.0,
+            "Type": "auto",
+            "Range": 100.0
+        },
+        {
+            "ClassName": "SpotlightLight",
+            "Factor": 1.0,
+            "Type": "auto",
+            "Range": 60.0
+        }
+    ],
     "UseOcclusion": 1,
     "OccludedFactor": 0.15000000596046449,
     "VegetationOccludedFactor": 0.5,

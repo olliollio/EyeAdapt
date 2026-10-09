@@ -83,8 +83,7 @@ modded class MissionGameplay
 		// The visuals already step aside for night vision in the requester.
 		float dose = m_EyeAdaptDose.Get();
 		m_EyeAdaptNightVision = EyeAdaptEnvironment.IsNightVisionActive(player);
-		if (m_EyeAdaptNightVision)
-			dose = Math.Max(dose, EyeAdaptSettings.Get().NightVisionDose);
+		dose = Math.Max(dose, EyeAdaptEnvironment.GetNightVisionDose(player));
 
 		float target = 1 - dose * EyeAdaptSettings.Get().MaxDoseEffect;
 		m_EyeAdapt.Update(timeslice, target);

@@ -6,8 +6,8 @@
 // Bump CURRENT_VERSION (and the Version default) whenever fields are added, so existing files get the new keys.
 class EyeAdaptSettings
 {
-	static const int CURRENT_VERSION = 10;
-	int Version = 10;
+	static const int CURRENT_VERSION = 11;
+	int Version = 11;
 	bool Enabled = true;
 
 	// Adaptation curve: fast stage (pupil/cones) + slow stage (rods), each ~95 % after its time.
@@ -39,12 +39,19 @@ class EyeAdaptSettings
 	float MaxDoseEffect = 1.0;             // how far a full dose pushes the target down
 	float ViewMinFactor = 0.25;            // lights behind you still count this much
 	float OwnLightFactor = 0.1;            // own spot light (flashlight/headtorch/weapon light). Own point lights (torch, chemlight) count by distance
-	float RedLightFactor = 0.15;           // red light barely affects night vision
-	float NightVisionDose = 0.5;           // powered NVG/NV scope counts as this dose, 0 = free
+	float RedLightFactor = 0.15;           // red light barely affects night vision (lights with Type "red", or "auto" and red colour)
+	float NightVisionDose = 0.5;           // powered NV goggles (both eyes) count as this dose, 0 = free
+	float NightVisionScopeDose = 0.25;     // powered NV scope (only the aiming eye), 0 = free
 	float OwnVehicleLightDose = 0.5;       // sitting in a car with its headlights on (you look at the lit road): at least this dose, 0 = free
-	float CarLightFactor = 5.0;            // other cars' headlights count this much stronger (bright, focused beam). Rear lights excluded
-	float CarLightRange = 70.0;            // other cars' headlights count up to this distance (other lights: ScanRadius)
-	                                       // With factor 5, centred headlights glare dark-adapted eyes from ~50-70 m
+
+	// Light table, per light class (also matches subclasses, the most specific entry wins). Lights without an entry
+	// count with factor 1, type "auto", range ScanRadius. Add modded lights here (Numpad 9 prints the class names).
+	//   ClassName: script class of the light (ScriptedLightBase subclass)
+	//   Factor:    brightness multiplier, 0 = ignore the light
+	//   Type:      "auto" = red discount if the light colour is red, "red" = always, "full" = never (flames are
+	//              orange-red in RGB but broadband light, they do bleach the rods)
+	//   Range:     metres the light counts up to, 0 = ScanRadius. Always also limited by the light's own radius
+	ref array<ref EyeAdaptLightEntry> Lights;
 	bool UseOcclusion = true;
 	float OccludedFactor = 0.15;           // light behind walls/terrain
 	float VegetationOccludedFactor = 0.5;  // light behind trees/bushes
@@ -120,6 +127,72 @@ class EyeAdaptSettings
 	// Numpad debug keys (set adaptation, toggle effect, print lights). Lets players cheat, switch off on live servers
 	bool DebugKeys = true;
 
+	// Vanilla defaults for the light table (written to config.json when the key is missing)
+	static array<ref EyeAdaptLightEntry> DefaultLights()
+	{
+		array<ref EyeAdaptLightEntry> lights = new array<ref EyeAdaptLightEntry>();
+		// Muzzle flashes last 10-80 ms, not an exposure source (_1/_2 don't inherit from MuzzleFlashLight)
+		lights.Insert(new EyeAdaptLightEntry("MuzzleFlashLight", 0));
+		lights.Insert(new EyeAdaptLightEntry("MuzzleFlashLight_1", 0));
+		lights.Insert(new EyeAdaptLightEntry("MuzzleFlashLight_2", 0));
+		// Flames: never the red discount
+		lights.Insert(new EyeAdaptLightEntry("FireplaceLight", 1, "full"));
+		lights.Insert(new EyeAdaptLightEntry("BonfireLight", 1, "full"));
+		lights.Insert(new EyeAdaptLightEntry("TirePileLight", 1, "full"));
+		lights.Insert(new EyeAdaptLightEntry("TorchLight", 1, "full"));
+		lights.Insert(new EyeAdaptLightEntry("PortableGasLampLight", 1, "full"));
+		// Headlights: bright focused beam, glare dark-adapted eyes from ~50-70 m. Rear lights normal (red by colour)
+		lights.Insert(new EyeAdaptLightEntry("CarLightBase", 5, "auto", 70));
+		lights.Insert(new EyeAdaptLightEntry("CarRearLightBase", 1));
+		// Flare gun flares light up a whole area from the sky
+		lights.Insert(new EyeAdaptLightEntry("FlareLight", 10, "auto", 100));
+		// Generator spotlight (radius 60 m)
+		lights.Insert(new EyeAdaptLightEntry("SpotlightLight", 1, "auto", 60));
+		return lights;
+	}
+
+	[NonSerialized()]
+	protected ref map<string, int> m_LightIndex; // light class -> index in Lights, -1 = no entry
+
+	// Most specific table entry for a light class, null if none. Cached per class
+	EyeAdaptLightEntry FindLight(typename lightType)
+	{
+		if (!Lights)
+			Lights = DefaultLights();
+		if (!m_LightIndex)
+			m_LightIndex = new map<string, int>();
+
+		string key = lightType.ToString();
+		int index;
+		if (!m_LightIndex.Find(key, index))
+		{
+			index = -1;
+			typename best;
+			for (int i = 0; i < Lights.Count(); i++)
+			{
+				EyeAdaptLightEntry entry = Lights[i];
+				if (!entry)
+					continue;
+
+				typename entryType = entry.ClassName.ToType();
+				if (!entryType || !lightType.IsInherited(entryType))
+					continue;
+
+				// Later or more specific entries win (an admin's own entry for a subclass beats the base class)
+				if (index < 0 || entryType.IsInherited(best))
+				{
+					index = i;
+					best = entryType;
+				}
+			}
+			m_LightIndex.Insert(key, index);
+		}
+
+		if (index < 0)
+			return null;
+		return Lights[index];
+	}
+
 	// ---- Static access ----
 
 	// Effective full adaptation time in seconds, depending on AdaptationMode
@@ -181,10 +254,17 @@ class EyeAdaptSettings
 				settings.Version = CURRENT_VERSION;
 				write = true;
 			}
+
+			if (!settings.Lights)
+			{
+				settings.Lights = DefaultLights();
+				write = true;
+			}
 		}
 		else
 		{
 			Print("[EyeAdapt] no config found, writing defaults to " + PATH);
+			settings.Lights = DefaultLights();
 			write = true;
 		}
 
@@ -197,6 +277,23 @@ class EyeAdaptSettings
 	static void SendTo(PlayerIdentity identity)
 	{
 		g_Game.RPCSingleParam(null, EyeAdaptRPC.SYNC_SETTINGS, new Param1<EyeAdaptSettings>(Get()), true, identity);
+	}
+}
+
+// One row of the light table (EyeAdaptSettings.Lights). Fields = JSON keys
+class EyeAdaptLightEntry
+{
+	string ClassName;
+	float Factor = 1.0;
+	string Type = "auto";
+	float Range = 0.0;
+
+	void EyeAdaptLightEntry(string className = "", float factor = 1.0, string type = "auto", float range = 0.0)
+	{
+		ClassName = className;
+		Factor = factor;
+		Type = type;
+		Range = range;
 	}
 }
 
