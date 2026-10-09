@@ -56,7 +56,21 @@ Then:
 
 ## 7. Start script
 
-`EyeAdapt_starter\start_local.bat`: check `DAYZ`, `SERVER` (install paths) at the top. `ADMIN=1` loads CF + VPP, `SERVERCFG` switches between real time and fast time.
+`EyeAdapt_starter\start_local.bat`: `ADMIN=1` loads CF + VPP, `SERVERCFG` switches between real time and fast time. Install paths differ per PC: put them into `EyeAdapt_starter\paths.local.bat` (gitignored, called by the start script), e.g.
+
+```
+set DAYZ=D:\Steam\steamapps\common\DayZ
+set SERVER=D:\Steam\steamapps\common\DayZServer
+```
+
+## PCs in use
+
+| PC | Repo | Work drive (P:) | Keys | Steam |
+|---|---|---|---|---|
+| first | `D:\DayZ-Mods\EyeAdapt` | `D:\DayZ-Work` | `D:\DayZ-Mods\keys` | `D:\SteamLibrary` |
+| second | `G:\Dayz-Modding\EyeAdapt` | `G:\Dayz-Modding\DayZ-Work` | `G:\Dayz-Modding\keys` | `D:\Steam` |
+
+On the second PC the existing `serverDZ.cfg` and chernarus `globals.xml` were backed up as `*.bak-pre-eyeadapt` before the dev versions replaced them.
 
 ## 8. Daily loop
 

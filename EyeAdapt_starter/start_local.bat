@@ -7,6 +7,8 @@ set BUILD=P:\@EyeAdapt
 rem Mod is copied into both game folders and loaded by relative path
 rem (loading it straight from P:\ coincided with "Game restart required" kicks)
 set MOD=@EyeAdapt
+rem Per-PC overrides (DAYZ, SERVER, BUILD, ...) go into paths.local.bat next to this file (gitignored)
+if exist "%~dp0paths.local.bat" call "%~dp0paths.local.bat"
 
 rem 1 = also load VPPAdminTools (needs CF) for teleport/time/weather while testing, 0 = EyeAdapt only.
 rem Admin access: Steam64 ID in %SERVER%\profiles\VPPAdminTools\Permissions\SuperAdmins\SuperAdmins.txt
