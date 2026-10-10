@@ -20,3 +20,6 @@ paths.local.bat
 !.vscode/extensions.json
 Thumbs.db
 desktop.ini
+
+# Internal project brief (not for the public repo)
+Claude.md
