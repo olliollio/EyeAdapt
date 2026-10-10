@@ -15,7 +15,7 @@ class CfgMods
 	{
 		dir = "EyeAdapt";
 		name = "Eye Adaptation";
-		author = "Olli";
+		author = "ollio";
 		type = "mod";
 		dependencies[] = { "Game", "World", "Mission" };
 

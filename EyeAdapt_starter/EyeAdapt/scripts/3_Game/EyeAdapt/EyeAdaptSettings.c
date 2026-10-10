@@ -6,8 +6,8 @@
 // Bump CURRENT_VERSION (and the Version default) whenever fields are added, so existing files get the new keys.
 class EyeAdaptSettings
 {
-	static const int CURRENT_VERSION = 18;
-	int Version = 18;
+	static const int CURRENT_VERSION = 19;
+	int Version = 19;
 	bool Enabled = true;
 
 	// Adaptation curve: fast stage (pupil/cones) + slow stage (rods), each ~95 % after its time.
@@ -17,7 +17,7 @@ class EyeAdaptSettings
 	//                                     (covers serverTimeAcceleration and serverNightTimeAcceleration),
 	//                                     clamped to AdaptMinSeconds..AdaptMaxSeconds. FullAdaptSeconds until measured
 	string AdaptationMode = "fixed";
-	float FullAdaptSeconds = 240.0;        // brief: 300-600 for release
+	float FullAdaptSeconds = 180.0;        // 3 min (decided 2026-10-10 for the first test release)
 	float FullAdaptNightFraction = 0.2;    // share of the WHOLE night length (sunset to sunrise), not of the time left. 0.2 = 20 %
 	float AdaptMinSeconds = 60.0;
 	float AdaptMaxSeconds = 900.0;
@@ -101,7 +101,7 @@ class EyeAdaptSettings
 	// 1. blowout = fully blown out for GlareHoldSeconds, fades over GlareFadeSeconds: GlareEvBoost, GlareOverlay, GlareContrastLoss
 	// 2. glow = bloom halo that fades over GlowFadeSeconds while the eyes adapt: GlareBloom*
 	// Strength scales with how adapted you were. Values below are at full glare, scaled by GlareStrength
-	float GlareStrength = 1.0;             // overall scale (0 = off)
+	float GlareStrength = 0.0;             // overall scale (0 = off). Off by default for the first test release (was 1.0)
 	float GlareViewPower = 8.0;            // how centred the light must be: cos^power, 8 = half at ~30 degrees off centre
 	float GlareBloomIntensity = 2.0;       // added to the bloom intensity (halo around bright light, engine max 4)
 	float GlareBloomThresholdDrop = 0.3;   // bloom threshold lowered by this (more of the image blooms)
@@ -119,8 +119,8 @@ class EyeAdaptSettings
 	float GlareSmoothSeconds = 0.15;       // fade-in/out smoothing of the glare
 
 	// Optional flashlight dazzle: someone else's flashlight/headtorch/headlights in your face at night acts like a
-	// short flashbang white-out (no sound). Off by default, server admins decide
-	bool FlashlightDazzle = false;
+	// short flashbang white-out (no sound). On by default for the first test release (2026-10-10), server admins decide
+	bool FlashlightDazzle = true;
 	float DazzleThreshold = 0.3;           // how strong the beam in the face must be (flashlight centred: ~7 m with defaults)
 	float DazzleHoldSeconds = 1.0;         // full white-out (vanilla flashbang: ~5.5 s)
 	float DazzleFadeSeconds = 2.0;         // fade back to normal (vanilla flashbang: ~2.5 s)
@@ -133,6 +133,8 @@ class EyeAdaptSettings
 
 	// Numpad debug keys (set adaptation, toggle effect, print lights). Lets players cheat, switch off on live servers
 	bool DebugKeys = true;
+	bool DebugLogging = false;             // client script log: the two [EyeAdapt] status lines every 5 s and event lines (dazzle). Off = quiet log
+	bool ShowAdaptation = false;           // on-screen text with the current adaptation (NA), updated every 5 s. For testing, players could use it to read their NA
 
 	// Vanilla defaults for the light table (written to config.json when the key is missing)
 	static array<ref EyeAdaptLightEntry> DefaultLights()

@@ -1,6 +1,6 @@
 # EyeAdapt – Admin Guide
 
-For server admins. Work in progress: this covers the general info, how to use the mod and the light table. The full list of every setting and example presets will follow.
+For server admins. Work in progress: sections 1-6 explain the mod, section 7 lists every setting with its default, section 8 has example presets. Defaults are those of config version 19 (`EyeAdaptSettings.c`). If a value here differs from your generated `config.json`, the file is right.
 
 ---
 
@@ -55,7 +55,18 @@ If the file has a JSON error the server logs `config.json could not be read` and
 
 ### 2.4 Debug keys
 
-`DebugKeys` enables Numpad cheats on the client (set adaptation, switch the effect off, print the light list to the script log). **Set it to `false` on live servers.** It lets players cheat.
+`DebugKeys` enables Numpad cheats on the client. **Set it to `false` on live servers.** It lets players cheat. The server setting is synced to the client, so the keys only work when the server has it on. The keys are ignored while any menu or the chat is open, and every key shows a short on-screen message.
+
+| Key | Action |
+|---|---|
+| Numpad 1 | Set NA to 0 (just left a lit room) |
+| Numpad 3 | Set NA to 1 (fully dark-adapted) |
+| Numpad 7 | Effect on/off, for an A/B comparison with the vanilla night |
+| Numpad 9 | Run a light scan now and print every contributing light to the script log (class name and matched table entry, see section 5.2). Also shows the total dose and the strongest light on screen |
+| Numpad * | Force full glare on/off, to judge the glare look |
+| Numpad / | Toggle client-local test headlights on the nearest car within 30 m, to test oncoming headlights alone. The real lights go off when you get out |
+
+**Testing night vision (NV goggles or NV scope).** There is no extra key for it. Set the starting value with Numpad 1 or 3, put on powered goggles (or aim through a powered NV scope), and watch the NA value on screen (`ShowAdaptation`, updated every second) or in the `[EyeAdapt]` log line (`DebugLogging`, every 5 seconds). Goggles count as a light dose of `NightVisionDose` (both eyes), a scope as `NightVisionScopeDose` (only the aiming eye), so NA falls towards the matching target instead of rising. While NV is on, glare, dazzle, grain and the soft look are off. Take the goggles off and NA recovers normally in the dark. To test the cost cleanly, start from Numpad 3 and compare the value after a minute with NV on against a minute without.
 
 ### 2.5 Quick tuning guide
 
@@ -65,10 +76,10 @@ If the file has a JSON error the server logs `config.json could not be read` and
 | Brighter or subtler night vision | `MaxEvBoost` (stops, default 5) |
 | Less grey, more colour | `MaxDesaturation` |
 | Light costs less or more | `DoseSensitivity`, `FalloffExponent`, or a light's `Factor` in the table |
-| Weaker or no glare | `GlareStrength` (0 = off) |
+| Switch glare on or make it weaker | `GlareStrength` (default 0 = off, 1.0 = full) |
 | Noisy night image (optional) | `NightGrain` (0 = off), `NightGrainSize`, `NightGrainFrequency` |
 | Soft night image (optional) | `NightSoftness` (0 = off) |
-| Flashlight in the face blinds | `FlashlightDazzle: true` (off by default) |
+| Flashlight in the face does not blind | `FlashlightDazzle: false` (on by default) |
 | Effect off entirely | `Enabled: false` |
 
 ---
@@ -102,7 +113,7 @@ How long full dark adaptation takes is set by `AdaptationMode`:
 
 | Mode | Behaviour |
 |---|---|
-| `"fixed"` | Full adaptation after `FullAdaptSeconds` real seconds in the dark (default 240, 300–600 recommended for release). |
+| `"fixed"` | Full adaptation after `FullAdaptSeconds` real seconds in the dark (default 180 = 3 min). |
 | `"relativeToNight"` | `FullAdaptNightFraction` of the whole night's real length (sunset to sunrise, not of the time left; 0.2 = 20 %). The mod measures the night length itself, on client and server, so `serverTimeAcceleration` and `serverNightTimeAcceleration` are covered. The result is clamped to `AdaptMinSeconds` (60) .. `AdaptMaxSeconds` (900). Until the night is measured, `FullAdaptSeconds` is used. |
 
 Examples:
@@ -200,7 +211,7 @@ Blur is not used. The mod does not simulate the blind spot in the centre of the 
 | Soft look | `NightSoftness` | 0 (off) | 0..1. Rods see little fine detail, so the image gets a soft glow at full adaptation. It is done with bloom (raised bloom, lowered threshold), not a blur filter, so aiming stays sharp. |
 
 Notes:
-- Vanilla film grain only shows when the engine's night-vision noise multiplier is non-zero. While grain is on, the mod sets that multiplier to 1 at a low priority. Real night vision (goggles and scopes) uses its own, higher value and is not changed.
+- Vanilla film grain only shows when the engine's night-vision noise multiplier is non-zero. While grain is on, the mod sets that multiplier to twice the current grain amount at a low priority, so it grows and shrinks with adaptation: no grain at zero NA, the full `NightGrain` amount at full NA. Real night vision (goggles and scopes) uses its own, higher value and is not changed.
 - If another mod already uses film grain at night (for example a lighting overhaul with `filmGrainIntensity`), the two add up. Lower `NightGrain` or leave it off.
 - Both effects are untested at this point. Tuning values are still to be found.
 
@@ -221,7 +232,7 @@ All of these must be true:
 
 ### 4.2 What the player sees
 
-Glare has two phases. Both scale with how adapted the player was (fully adapted = full effect) and with `GlareStrength` (1.0 = default, 0 = glare off entirely).
+Glare has two phases. Both scale with how adapted the player was (fully adapted = full effect) and with `GlareStrength` (1.0 = full glare, **default 0 = glare off**; set e.g. 1.0 to switch it on).
 
 **Phase 1: blowout.** A short, hard overexposure.
 
@@ -253,7 +264,7 @@ Looking into the light also lowers NA through the normal dose (section 3.4), so 
 
 ### 4.5 Flashlight dazzle (optional, off by default)
 
-`FlashlightDazzle: true` makes someone else's flashlight, headtorch or headlights in your face act like a short flashbang-style white-out (without sound). This is a gameplay decision, so it is off by default.
+`FlashlightDazzle: true` makes someone else's flashlight, headtorch or headlights in your face act like a short flashbang-style white-out (without sound). This is a gameplay decision, so admins can switch it off with `FlashlightDazzle: false`. It is on by default in the test release.
 
 | Setting | Default | Meaning |
 |---|---|---|
@@ -278,7 +289,7 @@ Every light near the player adds a **dose**. All doses are added up and run thro
 - **Brightness and the table:** the light's own brightness times the `Factor` from the light table.
 - **Distance:** it falls off with distance (`FalloffExponent`). Beyond `ScanRadius` (default 40 m), beyond the light's own radius, or beyond the table's `Range`, it counts as 0. Contributions under `DoseThreshold` count as 0.
 - **View angle:** lights in the middle of the view count fully, lights to the side less, lights behind you at least `ViewMinFactor`.
-- **Occlusion:** walls and terrain between you and the light reduce it (`OccludedFactor`), trees and bushes too (`VegetationOccludedFactor`), and so does grass in the line of sight (`GrassOccludedFactor`).
+- **Occlusion:** walls and terrain between you and the light reduce it (`OccludedFactor`), trees and bushes too (`VegetationOccludedFactor`), and so does grass in the line of sight (`GrassOccludedFactor`). The ray stops `OcclusionEndOffset` (0.5 m) before the light so the light's own housing doesn't block it. Grass is not geometry, so the line is sampled instead: grass counts where the line runs lower above the ground than `GrassHeight` (0.5 m), or `TallGrassHeight` (1.0 m) on tall grass surfaces. Grass within `GrassSkipNearEye` (1 m) of you and within `GrassSkipNearLight` (3 m) of the light is ignored, because headlights and your own feet always stand in it.
 - **Colour:** red light is discounted (`RedLightFactor`, see Type below).
 - **Own lights:** your own flashlight, headtorch or weapon light counts only `OwnLightFactor` (10 %). You are not looking into it. Own point lights, such as a torch or chemlight in your hand, count by distance like any other.
 
@@ -408,7 +419,7 @@ In a normal scene, only a few lights pass all the cheap checks, so a scan costs 
 
 ### 6.5 Logging
 
-The mod prints two `[EyeAdapt]` lines to the client script log every 5 seconds. They are useful while testing but add up in a log file over a long session. A switch (`DebugLogging`) is planned. Until then, the log lines do not affect frame rate noticeably, only log size.
+With `DebugLogging: true` the mod prints two `[EyeAdapt]` status lines to the client script log every 5 seconds, plus event lines (dazzle, flash grenade hit, restore after login). They are useful while testing but add up in a log file over a long session, so the default is `false` (quiet log). The lines do not affect frame rate noticeably, only log size. Numpad 9 output is not affected by this switch.
 
 ### 6.6 How to measure on your server
 
@@ -416,3 +427,180 @@ The mod prints two `[EyeAdapt]` lines to the client script log every 5 seconds. 
 2. Stand in the worst case for your server (lit base, parked cars with lights on, several players with flashlights) and press Numpad 9 once. The log shows how many lights are registered, how many passed the cheap checks, how many raycasts were used, and how many lights were skipped because the dose was saturated.
 3. If the frame rate drops, lower `MaxOcclusionChecks` first, then try `UseOcclusion: false`. If that fixes it, raise `GrassSampleStep` or disable only `UseGrassOcclusion` instead.
 4. Watch the server frame time while players disconnect and during the periodic saves. A hitch every `SaveIntervalSeconds` means the disk is too slow, so raise the interval.
+---
+
+## 7. Settings reference
+
+Every key in `config.json` with its default. Section numbers point to the explanation. `Version` is managed by the mod, do not edit it.
+
+### 7.1 General and persistence
+
+| Key | Default | Meaning |
+|---|---|---|
+| `Version` | 19 | Config version, set by the mod. |
+| `Enabled` | true | Master switch. |
+| `DebugKeys` | true | Numpad debug keys (2.4). **Set to false on live servers.** |
+| `DebugLogging` | false | Client script log: status lines every 5 s and event lines (6.5). |
+| `ShowAdaptation` | false | On-screen text "NA 73 %" in the top left, updated every second. Players could read their NA from it, so leave it off on live servers. |
+| `StartAdaptation` | 1.0 | NA for fresh characters and players without a record (2.3). |
+| `ReportIntervalSeconds` | 15 | Client reports its NA to the server this often. |
+| `SaveIntervalSeconds` | 120 | Server saves all online players this often. 0 = only on logout and shutdown. |
+
+### 7.2 Adaptation curve (3.2, 3.3)
+
+| Key | Default | Meaning |
+|---|---|---|
+| `AdaptationMode` | "fixed" | `"fixed"` or `"relativeToNight"`. |
+| `FullAdaptSeconds` | 180 | Full adaptation time in `fixed` mode (3 min). |
+| `FullAdaptNightFraction` | 0.2 | Share of the whole night in `relativeToNight` mode. |
+| `AdaptMinSeconds` / `AdaptMaxSeconds` | 60 / 900 | Clamp for `relativeToNight`. |
+| `FastCurveSeconds` | 20 | Fast stage, ~95 % complete after this. |
+| `FastCurveWeight` | 0.3 | Share of the gain from the fast stage. |
+| `LightFastSeconds` | 2 | Fast stage drop time under light. |
+| `LightSlowSeconds` | 8 | Slow stage drop time under light. |
+
+### 7.3 Light scan and dose (5.1, 5.5)
+
+| Key | Default | Meaning |
+|---|---|---|
+| `ScanInterval` | 0.25 | Seconds between light scans. |
+| `ScanRadius` | 40 | Maximum distance a light counts (also limited by its own radius). |
+| `FalloffExponent` | 1.3 | Distance falloff. 2 = physical inverse square. |
+| `DoseThreshold` | 0.02 | Contributions below this count as 0. |
+| `DoseSensitivity` | 2.0 | Saturation of the summed dose. |
+| `MaxDoseEffect` | 1.0 | How far a full dose pushes the NA target down. |
+| `ViewMinFactor` | 0.25 | Share a light behind the player still counts. |
+| `OwnLightFactor` | 0.1 | Own flashlight, headtorch or weapon light. |
+| `RedLightFactor` | 0.15 | Red light discount. |
+| `NightVisionDose` | 0.5 | Powered NV goggles. 0 = free. |
+| `NightVisionScopeDose` | 0.25 | Powered NV scope, aiming eye only. 0 = free. |
+| `FlashbangAdaptationLoss` | 1.0 | NA lost when a flash grenade hits. 0 = off. |
+| `OwnVehicleLightDose` | 0.5 | Minimum dose when sitting in a car with headlights on. 0 = free. |
+| `Lights` | see 5.4 | The light table (5.2). |
+
+### 7.4 Occlusion (5.1, 6.3)
+
+| Key | Default | Meaning |
+|---|---|---|
+| `UseOcclusion` | true | Raycast between eye and light. |
+| `MaxOcclusionChecks` | 8 | Raycasts per scan. 0 = no limit. |
+| `OccludedFactor` | 0.15 | Light behind walls or terrain. |
+| `VegetationOccludedFactor` | 0.5 | Light behind trees or bushes. |
+| `OcclusionEndOffset` | 0.5 | Ray stops this many metres before the light. |
+| `UseGrassOcclusion` | true | Sample the line for grass. |
+| `GrassOccludedFactor` | 0.3 | Light seen through grass. |
+| `GrassHeight` / `TallGrassHeight` | 0.5 / 1.0 | Grass heights in metres. |
+| `GrassSampleStep` | 2.0 | Metres between samples. |
+| `GrassSkipNearEye` / `GrassSkipNearLight` | 1.0 / 3.0 | Grass this close to you or the light is ignored. |
+
+### 7.5 Night gate and ambient light (3.5, 3.6)
+
+| Key | Default | Meaning |
+|---|---|---|
+| `DuskOffsetHours` / `DuskHours` | 0 / 2 | Fade-in after sunset (in-game hours). |
+| `DawnOffsetHours` / `DawnHours` | -1.5 / 1.5 | Fade-out around sunrise (in-game hours). |
+| `MoonIntensityFull` | 1.0 | Raw moon intensity counted as full moonlight. |
+| `StarlightShare` | 0.6 | Clear moonless sky relative to full moon. |
+| `OvercastClear` / `OvercastFull` | 0.35 / 1.0 | Overcast values that count as clear and as fully overcast. |
+| `OvercastMinShare` | 0.25 | Fully overcast relative to clear. |
+| `MinAmbientGain` | 0.2 | Floor as a share of `MaxEvBoost`. |
+| `UndergroundGain` | 0 | Gain underground (Livonia, Sakhal). |
+| `AmbientSmoothSeconds` | 2 | Smoothing of ambient changes. |
+
+### 7.6 Visuals (3.7)
+
+| Key | Default | Meaning |
+|---|---|---|
+| `MaxEvBoost` | 5 | EV stops under a clear full moon at full NA. |
+| `MaxDesaturation` | 0.6 | Colour loss at full NA. |
+| `ColorReturnSmoothSeconds` | 0.5 | Smoothing of the colour return near light. |
+| `MaxContrastBoost` | 0.15 | Counters the foggy look of the boost. |
+| `BlueShift` | 0.1 | Purkinje effect. 0 = off. |
+| `NightGrain` | 0 | Film grain, 0 = off. |
+| `NightGrainSize` / `NightGrainFrequency` | 2.75 / 20 | Grain look. |
+| `NightSoftness` | 0 | Soft bloom look, 0 = off. |
+
+### 7.7 Glare and dazzle (4)
+
+| Key | Default | Meaning |
+|---|---|---|
+| `GlareStrength` | 0 | Overall glare scale. **0 = off (default)**, 1.0 = full glare. |
+| `GlareViewPower` | 8 | How centred the light must be. |
+| `GlareTriggerLevel` | 0.3 | NA lag that starts a blowout. |
+| `GlareHoldSeconds` / `GlareFadeSeconds` | 0.6 / 1.0 | Blowout phase. |
+| `GlareEvBoost` / `GlareOverlay` / `GlareContrastLoss` | 6 / 1.0 / 0.3 | Blowout strength. |
+| `GlowFadeSeconds` | 6 | Bloom halo fade. |
+| `GlareBloomIntensity` / `GlareBloomThresholdDrop` | 2.0 / 0.3 | Bloom halo strength. |
+| `BloomBaseIntensity` / `BloomBaseThreshold` | 0.75 / 0.5 | Vanilla glow values. Change only if another mod alters them. |
+| `GlareSmoothSeconds` | 0.15 | Smoothing of the glare fades. |
+| `GlareRecoverySeconds` | 30 | Glare recovery limit. 0 = off. |
+| `FlashlightDazzle` | true | Other people's beams in your face dazzle. |
+| `DazzleThreshold` / `DazzleMinAdaptation` | 0.3 / 0.3 | When dazzle triggers. |
+| `DazzleHoldSeconds` / `DazzleFadeSeconds` / `DazzleRearmSeconds` | 1.0 / 2.0 / 2.0 | Dazzle timing. |
+| `DazzleOverlay` / `DazzleEvBoost` | 0.9 / 5 | Dazzle strength. |
+
+---
+
+## 8. Example presets
+
+Starting points, **not tested on a live server yet**. Put only the keys you want to change into `config.json`: missing keys keep their defaults. A key you change must have its value on the right JSON type (numbers without quotes, `true`/`false` for booleans).
+
+### 8.1 Realistic (the intended experience)
+
+Slow adaptation, light costs a lot, glare on.
+
+```json
+{
+  "AdaptationMode": "fixed",
+  "FullAdaptSeconds": 480,
+  "MaxEvBoost": 5.0,
+  "GlareStrength": 1.0,
+  "DebugKeys": false
+}
+```
+
+### 8.2 Mild (casual and PvE servers)
+
+Quick adaptation, light barely hurts, no glare. Closest to a plain brighter night.
+
+```json
+{
+  "AdaptationMode": "fixed",
+  "FullAdaptSeconds": 150,
+  "LightSlowSeconds": 20,
+  "DoseSensitivity": 1.0,
+  "GlareStrength": 0.3,
+  "DebugKeys": false
+}
+```
+
+### 8.3 Hardcore (PvP, light discipline)
+
+Long adaptation, light is punished, flashlight dazzle on, grain against gamma abuse.
+
+```json
+{
+  "AdaptationMode": "fixed",
+  "FullAdaptSeconds": 750,
+  "LightSlowSeconds": 5,
+  "DoseSensitivity": 3.0,
+  "NightVisionDose": 0.8,
+  "FlashlightDazzle": true,
+  "NightGrain": 0.15,
+  "DebugKeys": false
+}
+```
+
+### 8.4 Fast-night server (e.g. 48x night)
+
+Adaptation scales with the short night.
+
+```json
+{
+  "AdaptationMode": "relativeToNight",
+  "FullAdaptNightFraction": 0.25,
+  "AdaptMinSeconds": 60,
+  "AdaptMaxSeconds": 600,
+  "DebugKeys": false
+}
+```

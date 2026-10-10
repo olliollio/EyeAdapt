@@ -1,0 +1,180 @@
+{
+    "Version": 19,
+    "Enabled": 1,
+    "AdaptationMode": "relativeToNight",
+    "FullAdaptSeconds": 240.0,
+    "FullAdaptNightFraction": 0.20000000298023225,
+    "AdaptMinSeconds": 60.0,
+    "AdaptMaxSeconds": 900.0,
+    "FastCurveSeconds": 20.0,
+    "FastCurveWeight": 0.30000001192092898,
+    "StartAdaptation": 0.0,
+    "LightFastSeconds": 2.0,
+    "LightSlowSeconds": 8.0,
+    "ReportIntervalSeconds": 15.0,
+    "SaveIntervalSeconds": 120.0,
+    "ScanInterval": 0.25,
+    "ScanRadius": 40.0,
+    "FalloffExponent": 1.2999999523162842,
+    "DoseThreshold": 0.019999999552965165,
+    "DoseSensitivity": 2.0,
+    "MaxDoseEffect": 1.0,
+    "ViewMinFactor": 0.25,
+    "OwnLightFactor": 0.10000000149011612,
+    "RedLightFactor": 0.15000000596046449,
+    "NightVisionDose": 0.5,
+    "NightVisionScopeDose": 0.25,
+    "FlashbangAdaptationLoss": 1.0,
+    "OwnVehicleLightDose": 0.5,
+    "Lights": [
+        {
+            "ClassName": "MuzzleFlashLight",
+            "Factor": 0.0,
+            "Type": "auto",
+            "Range": 0.0
+        },
+        {
+            "ClassName": "MuzzleFlashLight_1",
+            "Factor": 0.0,
+            "Type": "auto",
+            "Range": 0.0
+        },
+        {
+            "ClassName": "MuzzleFlashLight_2",
+            "Factor": 0.0,
+            "Type": "auto",
+            "Range": 0.0
+        },
+        {
+            "ClassName": "FireplaceLight",
+            "Factor": 1.0,
+            "Type": "full",
+            "Range": 0.0
+        },
+        {
+            "ClassName": "BonfireLight",
+            "Factor": 1.0,
+            "Type": "full",
+            "Range": 0.0
+        },
+        {
+            "ClassName": "TirePileLight",
+            "Factor": 1.0,
+            "Type": "full",
+            "Range": 0.0
+        },
+        {
+            "ClassName": "TorchLight",
+            "Factor": 1.0,
+            "Type": "full",
+            "Range": 0.0
+        },
+        {
+            "ClassName": "PortableGasLampLight",
+            "Factor": 1.0,
+            "Type": "full",
+            "Range": 0.0
+        },
+        {
+            "ClassName": "CarLightBase",
+            "Factor": 5.0,
+            "Type": "auto",
+            "Range": 70.0
+        },
+        {
+            "ClassName": "CarRearLightBase",
+            "Factor": 1.0,
+            "Type": "auto",
+            "Range": 0.0
+        },
+        {
+            "ClassName": "FlareLight",
+            "Factor": 10.0,
+            "Type": "full",
+            "Range": 100.0
+        },
+        {
+            "ClassName": "RoadflareLight",
+            "Factor": 1.0,
+            "Type": "full",
+            "Range": 0.0
+        },
+        {
+            "ClassName": "ExplosionLight",
+            "Factor": 250.0,
+            "Type": "full",
+            "Range": 60.0
+        },
+        {
+            "ClassName": "EntranceLight",
+            "Factor": 4.0,
+            "Type": "auto",
+            "Range": 0.0
+        },
+        {
+            "ClassName": "SpotlightLight",
+            "Factor": 1.0,
+            "Type": "auto",
+            "Range": 60.0
+        }
+    ],
+    "UseOcclusion": 1,
+    "MaxOcclusionChecks": 8,
+    "OccludedFactor": 0.15000000596046449,
+    "VegetationOccludedFactor": 0.5,
+    "OcclusionEndOffset": 0.5,
+    "UseGrassOcclusion": 1,
+    "GrassOccludedFactor": 0.30000001192092898,
+    "GrassHeight": 0.5,
+    "TallGrassHeight": 1.0,
+    "GrassSampleStep": 2.0,
+    "GrassSkipNearEye": 1.0,
+    "GrassSkipNearLight": 3.0,
+    "DuskOffsetHours": 0.0,
+    "DuskHours": 2.0,
+    "DawnOffsetHours": -1.5,
+    "DawnHours": 1.5,
+    "MoonIntensityFull": 1.0,
+    "StarlightShare": 0.6000000238418579,
+    "OvercastClear": 0.3499999940395355,
+    "OvercastFull": 1.0,
+    "OvercastMinShare": 0.25,
+    "MinAmbientGain": 0.20000000298023225,
+    "UndergroundGain": 0.0,
+    "AmbientSmoothSeconds": 2.0,
+    "MaxEvBoost": 5.0,
+    "MaxDesaturation": 0.6000000238418579,
+    "ColorReturnSmoothSeconds": 0.5,
+    "MaxContrastBoost": 0.15000000596046449,
+    "BlueShift": 0.10000000149011612,
+    "NightGrain": 0.05000000074505806,
+    "NightGrainSize": 0.6000000238418579,
+    "NightGrainFrequency": 2.0,
+    "NightSoftness": 0.0010000000474974514,
+    "GlareStrength": 1.0,
+    "GlareViewPower": 8.0,
+    "GlareBloomIntensity": 2.0,
+    "GlareBloomThresholdDrop": 0.30000001192092898,
+    "BloomBaseIntensity": 0.75,
+    "BloomBaseThreshold": 0.5,
+    "GlareTriggerLevel": 0.30000001192092898,
+    "GlareHoldSeconds": 0.6000000238418579,
+    "GlareFadeSeconds": 1.0,
+    "GlareRecoverySeconds": 30.0,
+    "GlowFadeSeconds": 6.0,
+    "GlareEvBoost": 6.0,
+    "GlareContrastLoss": 0.30000001192092898,
+    "GlareOverlay": 1.0,
+    "GlareSmoothSeconds": 0.15000000596046449,
+    "FlashlightDazzle": 1,
+    "DazzleThreshold": 0.30000001192092898,
+    "DazzleHoldSeconds": 1.0,
+    "DazzleFadeSeconds": 2.0,
+    "DazzleRearmSeconds": 2.0,
+    "DazzleMinAdaptation": 0.30000001192092898,
+    "DazzleOverlay": 0.8999999761581421,
+    "DazzleEvBoost": 5.0,
+    "DebugKeys": 1,
+    "DebugLogging": 0,
+    "ShowAdaptation": 0
+}
