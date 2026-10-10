@@ -11,6 +11,7 @@ class PPERequester_EyeAdapt extends PPERequester_GameplayBase
 	static const int L_OVERLAY_C = 550; // overlay colour: above flashbang (500). We yield while a flashbang runs anyway
 	static const int L_GRAIN = 300;     // film grain: above NVG (100) and toxic tint (200). We yield to NVG anyway
 	static const int L_NOISE = 150;     // NV noise multiplier (needed for grain to show): HIGHEST, so NVG's own value wins
+	static const float NOISE_PER_GRAIN = 2.0; // noise multiplier at grain 1 (vanilla NV optics use 2)
 
 	// Our values would replace or fight the NVG and flashbang look, so step aside while they run
 	protected const ref array<typename> YIELD_TO = {
@@ -107,7 +108,9 @@ class PPERequester_EyeAdapt extends PPERequester_GameplayBase
 			SetTargetValueFloat(PostProcessEffectType.FilmGrain, PPEFilmGrain.PARAM_INTENSITY, false, grain, L_GRAIN, PPOperators.HIGHEST);
 			SetTargetValueFloat(PostProcessEffectType.FilmGrain, PPEFilmGrain.PARAM_GRAINSIZE, false, Math.Clamp(cfg.NightGrainSize, 1, 9), L_GRAIN, PPOperators.SET);
 			SetTargetValueFloat(PostProcessEffectType.FilmGrain, PPEFilmGrain.PARAM_FREQUENCY, false, Math.Clamp(cfg.NightGrainFrequency, 1, 1000), L_GRAIN, PPOperators.SET);
-			SetTargetValueFloat(PPEExceptions.NVLIGHTPARAMS, PPELightIntensityParamsNative.PARAM_NOISE_MULT, false, 1.0, L_NOISE, PPOperators.HIGHEST);
+			// The noise multiplier is what really drives the grain amount (vanilla NV: 1..2), so it scales with the grain too.
+			// A constant value made the grain equally strong at every adaptation level
+			SetTargetValueFloat(PPEExceptions.NVLIGHTPARAMS, PPELightIntensityParamsNative.PARAM_NOISE_MULT, false, grain * NOISE_PER_GRAIN, L_NOISE, PPOperators.HIGHEST);
 		}
 	}
 

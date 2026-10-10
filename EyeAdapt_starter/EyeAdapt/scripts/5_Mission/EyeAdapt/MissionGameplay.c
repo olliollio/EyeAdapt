@@ -24,7 +24,9 @@ modded class MissionGameplay
 	protected float m_EyeAdaptDazzleClear;       // seconds the beam has been out of the face while disarmed
 	protected float m_EyeAdaptColorDose;         // light dose smoothed for the colour return
 	protected float m_EyeAdaptLogTimer;
+	protected float m_EyeAdaptTextTimer;
 	protected bool m_EyeAdaptNightVision; // powered NVG/NV scope in use: counts as light (NIGHT_VISION_DOSE)
+	protected TextWidget m_EyeAdaptText; // optional on-screen adaptation readout (ShowAdaptation)
 
 	override void OnInit()
 	{
@@ -52,6 +54,7 @@ modded class MissionGameplay
 		{
 			// Bloom lives on the material, not in a PPE requester, so vanilla's death reset doesn't cover it
 			EyeAdaptBloom.Reset();
+			ShowEyeAdaptText(false);
 			return;
 		}
 
@@ -59,7 +62,8 @@ modded class MissionGameplay
 		if (EyeAdaptClient.s_PendingRestore >= 0)
 		{
 			m_EyeAdapt.Set(EyeAdaptClient.s_PendingRestore);
-			Print(string.Format("[EyeAdapt] adaptation restored from server: %1", EyeAdaptClient.s_PendingRestore));
+			if (EyeAdaptSettings.Get().DebugLogging)
+				Print(string.Format("[EyeAdapt] adaptation restored from server: %1", EyeAdaptClient.s_PendingRestore));
 			EyeAdaptClient.s_PendingRestore = -1;
 		}
 
@@ -69,7 +73,8 @@ modded class MissionGameplay
 			EyeAdaptClient.s_FlashbangHit = false;
 			float loss = Math.Clamp(EyeAdaptSettings.Get().FlashbangAdaptationLoss, 0, 1);
 			m_EyeAdapt.Set(m_EyeAdapt.Get() * (1 - loss));
-			Print(string.Format("[EyeAdapt] flash grenade hit, adaptation -> %1", m_EyeAdapt.Get()));
+			if (EyeAdaptSettings.Get().DebugLogging)
+				Print(string.Format("[EyeAdapt] flash grenade hit, adaptation -> %1", m_EyeAdapt.Get()));
 		}
 
 		if (EyeAdaptSettings.Get().DebugKeys)
@@ -117,18 +122,58 @@ modded class MissionGameplay
 		UpdateEyeAdaptDazzle(timeslice);
 		ApplyEyeAdaptVisuals();
 
+		m_EyeAdaptTextTimer += timeslice;
+		if (m_EyeAdaptTextTimer >= EyeAdaptConfig.TEXT_INTERVAL)
+		{
+			m_EyeAdaptTextTimer = 0;
+			UpdateEyeAdaptText();
+		}
+
 		m_EyeAdaptLogTimer += timeslice;
 		if (m_EyeAdaptLogTimer >= EyeAdaptConfig.LOG_INTERVAL)
 		{
 			m_EyeAdaptLogTimer = 0;
-			Print(string.Format("[EyeAdapt] adaptation %1 | dose %2 | strongest %3 (%4) | lights %5 | night %6 | boost %7 EV | bypass %8 | daytime %9",
-				m_EyeAdapt.Get(), m_EyeAdaptDose.Get(), m_EyeAdaptDose.GetStrongestName(), m_EyeAdaptDose.GetStrongestDose(),
-				m_EyeAdaptDose.GetLightCount(), m_EyeAdaptNight, GetEyeAdaptEVBoost(), m_EyeAdaptBypass, g_Game.GetDayTime()));
-			Print(string.Format("[EyeAdapt] env | moon raw %1 | moon light %2 | overcast %3 | sky light %4 | ambient gain %5 | underground %6 | NV type %7 (active %8) | glare peak %9",
-				EyeAdaptEnvironment.GetMoonIntensityRaw(), EyeAdaptEnvironment.GetMoonLight(), EyeAdaptEnvironment.GetOvercast(),
-				EyeAdaptEnvironment.GetSkyLight(), m_EyeAdaptAmbient, player.m_UndergroundPresence, player.GetNVType(), m_EyeAdaptNightVision, m_EyeAdaptGlarePeak));
+			if (EyeAdaptSettings.Get().DebugLogging)
+			{
+				Print(string.Format("[EyeAdapt] adaptation %1 | dose %2 | strongest %3 (%4) | lights %5 | night %6 | boost %7 EV | bypass %8 | daytime %9",
+					m_EyeAdapt.Get(), m_EyeAdaptDose.Get(), m_EyeAdaptDose.GetStrongestName(), m_EyeAdaptDose.GetStrongestDose(),
+					m_EyeAdaptDose.GetLightCount(), m_EyeAdaptNight, GetEyeAdaptEVBoost(), m_EyeAdaptBypass, g_Game.GetDayTime()));
+				Print(string.Format("[EyeAdapt] env | moon raw %1 | moon light %2 | overcast %3 | sky light %4 | ambient gain %5 | underground %6 | NV type %7 (active %8) | glare peak %9",
+					EyeAdaptEnvironment.GetMoonIntensityRaw(), EyeAdaptEnvironment.GetMoonLight(), EyeAdaptEnvironment.GetOvercast(),
+					EyeAdaptEnvironment.GetSkyLight(), m_EyeAdaptAmbient, player.m_UndergroundPresence, player.GetNVType(), m_EyeAdaptNightVision, m_EyeAdaptGlarePeak));
+			}
 			m_EyeAdaptGlarePeak = 0;
 		}
+	}
+
+	// ---- On-screen adaptation readout (ShowAdaptation) ----
+
+	protected void UpdateEyeAdaptText()
+	{
+		if (!EyeAdaptSettings.Get().ShowAdaptation)
+		{
+			ShowEyeAdaptText(false);
+			return;
+		}
+
+		if (!m_EyeAdaptText)
+		{
+			Widget root = g_Game.GetWorkspace().CreateWidget(TextWidgetTypeID, 20, 20, 400, 44, WidgetFlags.VISIBLE | WidgetFlags.HEXACTPOS | WidgetFlags.VEXACTPOS | WidgetFlags.HEXACTSIZE | WidgetFlags.VEXACTSIZE, 0xffffffff, 1000);
+			m_EyeAdaptText = TextWidget.Cast(root);
+			if (!m_EyeAdaptText)
+				return;
+
+			m_EyeAdaptText.SetTextExactSize(28);
+		}
+
+		m_EyeAdaptText.SetText("NA " + Math.Round(m_EyeAdapt.Get() * 100).ToString() + " %");
+		m_EyeAdaptText.Show(true);
+	}
+
+	protected void ShowEyeAdaptText(bool show)
+	{
+		if (m_EyeAdaptText)
+			m_EyeAdaptText.Show(show);
 	}
 
 	// Effect strength 0..1 that drives all visuals. Rounded to 1/500 so the PPE requests
@@ -332,7 +377,8 @@ modded class MissionGameplay
 			m_EyeAdaptDazzle = strength;
 			m_EyeAdaptDazzleArmed = false;
 			m_EyeAdaptDazzleClear = 0;
-			Print(string.Format("[EyeAdapt] dazzled by a flashlight (beam %1, strength %2)", m_EyeAdaptDose.GetDazzleLight(), strength));
+			if (EyeAdaptSettings.Get().DebugLogging)
+				Print(string.Format("[EyeAdapt] dazzled by a flashlight (beam %1, strength %2)", m_EyeAdaptDose.GetDazzleLight(), strength));
 		}
 	}
 
@@ -340,6 +386,11 @@ modded class MissionGameplay
 	{
 		// Material changes outlive the mission, so give the glow material its own bloom back
 		EyeAdaptBloom.Reset();
+		if (m_EyeAdaptText)
+		{
+			m_EyeAdaptText.Unlink();
+			m_EyeAdaptText = null;
+		}
 		super.OnMissionFinish();
 	}
 

@@ -1,8 +1,8 @@
 {
-    "Version": 18,
+    "Version": 19,
     "Enabled": 1,
-    "AdaptationMode": "relativeToNight",
-    "FullAdaptSeconds": 240.0,
+    "AdaptationMode": "fixed",
+    "FullAdaptSeconds": 180.0,
     "FullAdaptNightFraction": 0.20000000298023225,
     "AdaptMinSeconds": 60.0,
     "AdaptMaxSeconds": 900.0,
@@ -147,11 +147,11 @@
     "ColorReturnSmoothSeconds": 0.5,
     "MaxContrastBoost": 0.15000000596046449,
     "BlueShift": 0.10000000149011612,
-    "NightGrain": 0.3,
-    "NightGrainSize": 2.75,
-    "NightGrainFrequency": 20.0,
+    "NightGrain": 0.0,
+    "NightGrainSize": 0.6,
+    "NightGrainFrequency": 2.0,
     "NightSoftness": 0.0,
-    "GlareStrength": 1.0,
+    "GlareStrength": 0.0,
     "GlareViewPower": 8.0,
     "GlareBloomIntensity": 2.0,
     "GlareBloomThresholdDrop": 0.30000001192092898,
@@ -174,5 +174,7 @@
     "DazzleMinAdaptation": 0.3,
     "DazzleOverlay": 0.8999999761581421,
     "DazzleEvBoost": 5.0,
-    "DebugKeys": 1
+    "DebugKeys": 1,
+    "DebugLogging": 1,
+    "ShowAdaptation": 1
 }
