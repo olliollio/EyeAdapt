@@ -291,11 +291,11 @@ Every light near the player adds a **dose**. All doses are added up and run thro
 - **Brightness and the table:** the light's own brightness times the `Factor` from the light table.
 - **Distance:** it falls off with distance (`FalloffExponent`). Beyond `ScanRadius` (default 40 m), beyond the light's own radius, or beyond the table's `Range`, it counts as 0. Contributions under `DoseThreshold` count as 0.
 - **View angle:** lights in the middle of the view count fully, lights to the side less, lights behind you at least `ViewMinFactor`.
-- **Occlusion:** walls and terrain between you and the light reduce it (`OccludedFactor`), trees and bushes too (`VegetationOccludedFactor`), and so does grass in the line of sight (`GrassOccludedFactor`). The ray stops `OcclusionEndOffset` (0.5 m) before the light so the light's own housing doesn't block it. Grass is not geometry, so the line is sampled instead: grass counts where the line runs lower above the ground than `GrassHeight` (0.5 m), or `TallGrassHeight` (1.0 m) on tall grass surfaces. Grass within `GrassSkipNearEye` (1 m) of you and within `GrassSkipNearLight` (3 m) of the light is ignored, because headlights and your own feet always stand in it.
+- **Occlusion:** walls and terrain between you and the light reduce it (`OccludedFactor`), trees and bushes too (`VegetationOccludedFactor`), and, if `UseGrassOcclusion` is on (off by default), so does grass in the line of sight (`GrassOccludedFactor`, only for lights up to `GrassLightMaxHeight` above the ground). The ray stops `OcclusionEndOffset` (0.5 m) before the light so the light's own housing doesn't block it. Grass is not geometry, so the line is sampled instead: grass counts where the line runs lower above the ground than `GrassHeight` (0.5 m), or `TallGrassHeight` (1.0 m) on tall grass surfaces. Grass within `GrassSkipNearEye` (1 m) of you and within `GrassSkipNearLight` (3 m) of the light is ignored, because headlights and your own feet always stand in it.
 - **Colour:** red light is discounted (`RedLightFactor`, see Type below).
 - **Own lights:** your own flashlight, headtorch or weapon light counts only `OwnLightFactor` (10 %). You are not looking into it. Own point lights, such as a torch or chemlight in your hand, count by distance like any other.
 
-The scan runs every `ScanInterval` (0.25 s).
+The scan runs every `ScanInterval` (0.25 s) at night and once a second by day (glare and dazzle are off by day, so the scan only feeds the adaptation value).
 
 ### 5.2 The light table
 
@@ -375,11 +375,11 @@ The mod was designed so that the cost stays small and does not grow with the siz
 
 | Side | What runs | How often | Cost driver |
 |---|---|---|---|
-| Client | Light scan | every `ScanInterval` (0.25 s) | Number of lights near the player |
-| Client | Adaptation update, visuals | every frame | Constant, a handful of arithmetic operations and a few post-processing parameters |
+| Client | Light scan | every `ScanInterval` (0.25 s) at night, 1 s by day | Number of lights near the player |
+| Client | Adaptation update, visuals | every frame | Constant, a handful of arithmetic operations and a few post-processing parameters (by day the glare math is skipped, and post-processing values are only sent when they change); the night factor is read once a second |
 | Client | Report to the server | every `ReportIntervalSeconds` (15 s), at night only | One tiny RPC |
 | Server | Remember one player | on report and disconnect | One small record in memory |
-| Server | Night length measurement | per tick | A few arithmetic operations |
+| Server | Night length measurement | per tick, only in `relativeToNight` mode | A few arithmetic operations |
 | Server | Config sync | once per connecting client | One RPC |
 
 The visual effect itself is client-side post-processing, so it adds no server load. The server never scans lights and never needs to know where players are looking.
@@ -392,9 +392,9 @@ The visual effect itself is client-side post-processing, so it adds no server lo
 - **Two passes, strongest light first.** The scan first runs the cheap checks on all lights and sorts the survivors by dose. Only then does it do the occlusion tests, from the strongest light down. This keeps a big lit base cheap:
   - **Budget:** at most `MaxOcclusionChecks` (default 8) raycasts per scan. Lights over the budget count as blocked (`OccludedFactor`) instead of costing a raycast. Because the strongest lights are checked first, the ones that matter are tested. Set it to 0 for no limit.
   - **Saturation stop:** once the total dose is about 98 % saturated, the remaining lights are skipped, since they cannot change the result visibly. Lights that matter for glare (centred in view) and other people's spot lights (for the optional dazzle) are still tested until the glare dose is saturated as well.
-- **Grass check.** If the raycast is free, the line to the light is sampled every `GrassSampleStep` (2 m): one terrain height lookup per sample, and a surface name lookup only where the line runs lower than the grass is tall. A light 40 m away costs about 20 samples.
+- **Grass check.** Off by default (`UseGrassOcclusion`). When on, and the raycast is free, lights up to `GrassLightMaxHeight` above the ground get the line to the light sampled every `GrassSampleStep` (4 m): one terrain height lookup per sample, and a surface name lookup only where the line runs lower than the grass is tall. A light 40 m away costs about 10 samples.
 - **The ambient light reading is cheap.** Each scan also reads the moon, the overcast value and the underground state for the ambient gain. These are plain getters on the world and weather, with no object search. The only world search in the mod is the Numpad `/` test headlights key (`DebugKeys` only), which queries objects once per key press.
-- **The scan also runs by day.** Adaptation keeps running by day, so the scan and the update also run in daylight. Only the visuals are gated by the night.
+- **The scan also runs by day, more slowly.** Adaptation keeps running by day, so the scan and the update also run in daylight, but the scan drops to once a second and the glare and dazzle updates are skipped. Only the visuals are gated by the night.
 
 In a normal scene, only a few lights pass all the cheap checks, so a scan costs a few raycasts. A busy scene, such as a big lit base with many lamps in view or a convoy of cars with headlights, costs more, but it is limited by the number of lights inside their radius and `ScanRadius`.
 
@@ -408,8 +408,9 @@ In a normal scene, only a few lights pass all the cheap checks, so a scan costs 
 | Light table `Factor: 0` | Ignores the light before any other work. Use it for lights that should never count. |
 | `MaxOcclusionChecks` | Upper limit of raycasts per scan (default 8, 0 = no limit). Lower = cheaper in lit bases, but more lights are assumed blocked. |
 | `UseOcclusion` | `false` removes all raycasts and the grass check. Cheapest option, but lights behind walls then count fully. This is the biggest saving. |
-| `UseGrassOcclusion` | `false` removes the terrain sampling but keeps the raycast. |
-| `GrassSampleStep` | Larger = fewer samples per light (4 m halves the grass cost), but it can miss narrow grassy crests. |
+| `UseGrassOcclusion` | Off by default. `true` adds the terrain sampling after the raycast. |
+| `GrassSampleStep` | Larger = fewer samples per light (default 4 m), but it can miss narrow grassy crests. |
+| `GrassLightMaxHeight` | Only lights this low above the ground (default 1.5 m) get the grass check. Lower = cheaper. |
 | `DoseThreshold` | Higher = weak lights are dropped before occlusion is tested. |
 | `ReportIntervalSeconds` | Larger = fewer RPCs. The server only keeps the last value anyway. |
 | `DebugKeys` | `false` on live servers (also for cheating reasons). |
@@ -428,7 +429,7 @@ With `DebugLogging: true` the mod prints two `[EyeAdapt]` status lines to the cl
 
 1. Compare the frame time at night with and without the effect: Numpad 7 toggles it (needs `DebugKeys`).
 2. Stand in the worst case for your server (lit base, parked cars with lights on, several players with flashlights) and press Numpad 9 once. The log shows how many lights are registered, how many passed the cheap checks, how many raycasts were used, and how many lights were skipped because the dose was saturated.
-3. If the frame rate drops, lower `MaxOcclusionChecks` first, then try `UseOcclusion: false`. If that fixes it, raise `GrassSampleStep` or disable only `UseGrassOcclusion` instead.
+3. If the frame rate drops, lower `MaxOcclusionChecks` first, then try `UseOcclusion: false`. If that fixes it, keep `UseGrassOcclusion` off (the default), or raise `GrassSampleStep`.
 ---
 
 ## 7. Settings reference
@@ -439,7 +440,7 @@ Every key in `config.json` with its default. Section numbers point to the explan
 
 | Key | Default | Meaning |
 |---|---|---|
-| `Version` | 24 | Config version, set by the mod. |
+| `Version` | 25 | Config version, set by the mod. |
 | `Enabled` | true | Master switch. |
 | `DebugKeys` | false | Numpad debug keys (2.4). **Set to false on live servers.** |
 | `DebugLogging` | false | Client script log: status lines every 5 s and event lines (6.5). |
@@ -489,11 +490,12 @@ Every key in `config.json` with its default. Section numbers point to the explan
 | `OccludedFactor` | 0.15 | Light behind walls or terrain. |
 | `VegetationOccludedFactor` | 0.5 | Light behind trees or bushes. |
 | `OcclusionEndOffset` | 0.5 | Ray stops this many metres before the light. |
-| `UseGrassOcclusion` | true | Sample the line for grass. |
+| `UseGrassOcclusion` | false | Sample the line for grass (costs extra, off by default). |
 | `GrassOccludedFactor` | 0.3 | Light seen through grass. |
 | `GrassHeight` / `TallGrassHeight` | 0.5 / 1.0 | Grass heights in metres. |
-| `GrassSampleStep` | 2.0 | Metres between samples. |
+| `GrassSampleStep` | 4.0 | Metres between samples. |
 | `GrassSkipNearEye` / `GrassSkipNearLight` | 1.0 / 3.0 | Grass this close to you or the light is ignored. |
+| `GrassLightMaxHeight` | 1.5 | Only lights up to this height above the ground get the grass check. |
 
 ### 7.5 Night gate and ambient light (3.5, 3.6)
 
