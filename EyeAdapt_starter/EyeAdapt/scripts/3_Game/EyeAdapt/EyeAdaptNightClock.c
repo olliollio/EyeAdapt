@@ -16,6 +16,10 @@ class EyeAdaptNightClock
 
 	static void Update(float timeslice)
 	{
+		// Only "relativeToNight" needs the measurement
+		if (EyeAdaptSettings.Get().AdaptationMode != "relativeToNight")
+			return;
+
 		s_Timer += timeslice;
 		if (s_Timer < SAMPLE_SECONDS)
 			return;
