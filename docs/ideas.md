@@ -18,6 +18,7 @@ Idea: multiply it by how much the camera looks along the car (`Lerp(ViewMinFacto
 
 - Edge case, costs a few `SurfaceY`/`SurfaceGetType` calls per visible light per scan.
 - Decision (2026-10-09): keep for now, candidate for removal at release prep / performance check.
+- Update (2026-10-12): off by default now (`UseGrassOcclusion` false), sample step 4 m, and only lights up to `GrassLightMaxHeight` (1.5 m) above the ground are checked. Admins can switch it on. Remove it completely if nobody does.
 
 ## Admin option: personal light in bunkers
 

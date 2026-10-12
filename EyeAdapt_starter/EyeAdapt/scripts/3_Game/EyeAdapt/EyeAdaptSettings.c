@@ -6,8 +6,8 @@
 // Bump CURRENT_VERSION (and the Version default) whenever fields are added, so existing files get the new keys.
 class EyeAdaptSettings
 {
-	static const int CURRENT_VERSION = 24;
-	int Version = 24;
+	static const int CURRENT_VERSION = 25;
+	int Version = 25;
 	bool Enabled = true;
 
 	// Adaptation curve: fast stage (pupil/cones) + slow stage (rods), each ~95 % after its time.
@@ -61,13 +61,14 @@ class EyeAdaptSettings
 	// Grass is GPU clutter without geometry, raycasts pass through it. Instead the line eye -> light is sampled:
 	// where it runs through grass (lower above the ground than the grass is tall), the light counts as partly hidden.
 	// Surfaces count as grass when their name contains "grass" (all vanilla maps), "tall" in the name = tall grass
-	bool UseGrassOcclusion = true;
+	bool UseGrassOcclusion = false;
 	float GrassOccludedFactor = 0.3;       // light seen through grass
 	float GrassHeight = 0.5;               // metres
 	float TallGrassHeight = 1.0;
-	float GrassSampleStep = 2.0;           // metres between samples along the line
+	float GrassSampleStep = 4.0;           // metres between samples along the line
 	float GrassSkipNearEye = 1.0;          // grass at your own feet doesn't count
 	float GrassSkipNearLight = 3.0;        // grass right at the light doesn't count (headlights always sit in it)
+	float GrassLightMaxHeight = 1.5;       // only lights this low above the ground are checked (ground fires, car headlights); a higher light is seen over the grass
 
 	// Night gate (hours relative to the map's sunrise/sunset)
 	float DuskOffsetHours = 0.0;

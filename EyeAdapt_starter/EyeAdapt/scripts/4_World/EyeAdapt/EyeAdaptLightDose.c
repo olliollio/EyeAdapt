@@ -445,6 +445,10 @@ class EyeAdaptLightDose
 		if (!cfg.UseGrassOcclusion || cfg.GrassSampleStep <= 0)
 			return 1;
 
+		// A light well above the grass is seen over it (cheap early exit, one height lookup)
+		if (lightPos[1] - g_Game.SurfaceY(lightPos[0], lightPos[2]) > cfg.GrassLightMaxHeight)
+			return 1;
+
 		vector toLight = lightPos - eyePos;
 		float dist = toLight.Length();
 		float maxHeight = Math.Max(cfg.GrassHeight, cfg.TallGrassHeight);
