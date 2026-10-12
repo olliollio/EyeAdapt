@@ -23,6 +23,9 @@ class PPERequester_EyeAdapt extends PPERequester_GameplayBase
 	static const vector TINT_NEUTRAL = "1 1 1";
 
 	// Last applied colours; colour setters always resend, so skip unchanged values ourselves
+	protected float m_LastEv;
+	protected float m_LastSaturation = 1;
+	protected float m_LastContrast = 1;
 	protected vector m_LastTint = TINT_NEUTRAL;
 	protected float m_LastOverlay;
 	protected float m_LastGrain;
@@ -45,20 +48,39 @@ class PPERequester_EyeAdapt extends PPERequester_GameplayBase
 			offset = 0;
 		}
 
+		// Neutral values are normalised first, so "release" compares equal to "release". Only changed values are sent
 		if (ev <= 0.001)
-			SetTargetValueFloatDefault(PPEExceptions.EXPOSURE, PPEExposureNative.PARAM_INTENSITY);
-		else
-			SetTargetValueFloat(PPEExceptions.EXPOSURE, PPEExposureNative.PARAM_INTENSITY, false, ev, L_EV, PPOperators.SET);
+			ev = 0;
+		if (ev != m_LastEv)
+		{
+			m_LastEv = ev;
+			if (ev == 0)
+				SetTargetValueFloatDefault(PPEExceptions.EXPOSURE, PPEExposureNative.PARAM_INTENSITY);
+			else
+				SetTargetValueFloat(PPEExceptions.EXPOSURE, PPEExposureNative.PARAM_INTENSITY, false, ev, L_EV, PPOperators.SET);
+		}
 
 		if (saturation >= 0.999)
-			SetTargetValueFloatDefault(PostProcessEffectType.Glow, PPEGlow.PARAM_SATURATION);
-		else
-			SetTargetValueFloat(PostProcessEffectType.Glow, PPEGlow.PARAM_SATURATION, true, saturation, L_SAT, PPOperators.LOWEST);
+			saturation = 1;
+		if (saturation != m_LastSaturation)
+		{
+			m_LastSaturation = saturation;
+			if (saturation == 1)
+				SetTargetValueFloatDefault(PostProcessEffectType.Glow, PPEGlow.PARAM_SATURATION);
+			else
+				SetTargetValueFloat(PostProcessEffectType.Glow, PPEGlow.PARAM_SATURATION, true, saturation, L_SAT, PPOperators.LOWEST);
+		}
 
 		if (Math.AbsFloat(contrast - 1) <= 0.001)
-			SetTargetValueFloatDefault(PostProcessEffectType.Glow, PPEGlow.PARAM_CONTRAST);
-		else
-			SetTargetValueFloat(PostProcessEffectType.Glow, PPEGlow.PARAM_CONTRAST, false, contrast, L_CONTRAST, PPOperators.SET);
+			contrast = 1;
+		if (contrast != m_LastContrast)
+		{
+			m_LastContrast = contrast;
+			if (contrast == 1)
+				SetTargetValueFloatDefault(PostProcessEffectType.Glow, PPEGlow.PARAM_CONTRAST);
+			else
+				SetTargetValueFloat(PostProcessEffectType.Glow, PPEGlow.PARAM_CONTRAST, false, contrast, L_CONTRAST, PPOperators.SET);
+		}
 
 		if (offset > -0.0005)
 			SetTargetValueFloatDefault(PostProcessEffectType.Glow, PPEGlow.PARAM_OFFSET);
@@ -126,6 +148,9 @@ class PPERequester_EyeAdapt extends PPERequester_GameplayBase
 	override protected void OnStop(Param par = null)
 	{
 		super.OnStop(par);
+		m_LastEv = 0;
+		m_LastSaturation = 1;
+		m_LastContrast = 1;
 		m_LastTint = TINT_NEUTRAL;
 		m_LastOverlay = 0;
 		m_LastGrain = 0;
