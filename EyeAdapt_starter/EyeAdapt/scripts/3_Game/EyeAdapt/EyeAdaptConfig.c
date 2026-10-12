@@ -4,6 +4,8 @@ class EyeAdaptConfig
 {
 	static const float LOG_INTERVAL = 5.0;              // debug print interval (seconds)
 	static const float TEXT_INTERVAL = 1.0;             // on-screen adaptation text refresh (seconds)
+	static const float NIGHT_INTERVAL = 1.0;            // night gate refresh (seconds)
+	static const float DAY_SCAN_INTERVAL = 1.0;         // light scan interval by day, when glare and dazzle are off (seconds)
 
 	// Debug keys, only while no menu/chat is open and only if the server allows them (EyeAdaptSettings.DebugKeys).
 	// Numpad keys because F6-F8 are gesture slots in DayZ.

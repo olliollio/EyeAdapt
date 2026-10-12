@@ -5,6 +5,7 @@ modded class MissionGameplay
 	protected ref EyeAdaptLightDose m_EyeAdaptDose;
 	protected float m_EyeAdaptScanTimer;
 	protected float m_EyeAdaptReportTimer;
+	protected float m_EyeAdaptNightTimer = 1e6; // seconds since the night gate was read (it changes over minutes, so once a second is plenty)
 	protected PPERequester_EyeAdapt m_EyeAdaptPPE;
 	protected bool m_EyeAdaptBypass; // debug: visual effect switched off for A/B comparison
 	protected float m_EyeAdaptNight;  // night gate 0 (day) .. 1 (night)
@@ -83,9 +84,22 @@ modded class MissionGameplay
 
 		EyeAdaptNightClock.Update(timeslice);
 
-		// Light scan every SCAN_INTERVAL, adaptation smooths in between
+		// Night gate, read once a second (an in-game hour takes minutes even at 48x)
+		m_EyeAdaptNightTimer += timeslice;
+		if (m_EyeAdaptNightTimer >= EyeAdaptConfig.NIGHT_INTERVAL)
+		{
+			m_EyeAdaptNightTimer = 0;
+			m_EyeAdaptNight = EyeAdaptEnvironment.GetNightFactor();
+		}
+
+		// Light scan every ScanInterval, adaptation smooths in between. By day only the adaptation value needs
+		// it (glare and dazzle are off), so a slower scan is enough
+		float scanInterval = EyeAdaptSettings.Get().ScanInterval;
+		if (m_EyeAdaptNight <= 0)
+			scanInterval = Math.Max(scanInterval, EyeAdaptConfig.DAY_SCAN_INTERVAL);
+
 		m_EyeAdaptScanTimer += timeslice;
-		if (m_EyeAdaptScanTimer >= EyeAdaptSettings.Get().ScanInterval)
+		if (m_EyeAdaptScanTimer >= scanInterval)
 		{
 			m_EyeAdaptScanTimer = 0;
 			m_EyeAdaptDose.Scan();
@@ -105,7 +119,7 @@ modded class MissionGameplay
 
 		// Report to the server, which saves the latest value on logout. Not by day: the effect is off and the
 		// value is irrelevant by the next night (the logout report in StartLogoutMenu is always sent).
-		// m_EyeAdaptNight is last frame's value, the timer keeps running so the first report comes right at dusk
+		// The timer keeps running by day, so the first report comes right at dusk
 		m_EyeAdaptReportTimer += timeslice;
 		if (m_EyeAdaptReportTimer >= EyeAdaptSettings.Get().ReportIntervalSeconds && m_EyeAdaptNight > 0)
 		{
@@ -116,13 +130,23 @@ modded class MissionGameplay
 		// Smooth the ambient gain so scan steps and underground state switches don't jump the brightness
 		float k = Math.Clamp(timeslice / EyeAdaptSettings.Get().AmbientSmoothSeconds, 0, 1);
 		m_EyeAdaptAmbient += (m_EyeAdaptAmbientTarget - m_EyeAdaptAmbient) * k;
-		m_EyeAdaptNight = EyeAdaptEnvironment.GetNightFactor();
 		// Colour returns near light: smooth the dose so saturation doesn't step with each scan
 		float colorK = Math.Clamp(timeslice / Math.Max(EyeAdaptSettings.Get().ColorReturnSmoothSeconds, 0.01), 0, 1);
 		m_EyeAdaptColorDose += (m_EyeAdaptDose.Get() - m_EyeAdaptColorDose) * colorK;
 
-		UpdateEyeAdaptGlare(timeslice);
-		UpdateEyeAdaptDazzle(timeslice);
+		if (IsEyeAdaptGlareIdle())
+		{
+			// Day and nothing left running: skip the glare math. Keep the shared recovery clock going,
+			// re-arm the dazzle (the beam doesn't matter by day) and make sure no bloom stays on the material
+			m_EyeAdaptSinceGlare += timeslice;
+			m_EyeAdaptDazzleArmed = true;
+			EyeAdaptBloom.Reset();
+		}
+		else
+		{
+			UpdateEyeAdaptGlare(timeslice);
+			UpdateEyeAdaptDazzle(timeslice);
+		}
 		ApplyEyeAdaptVisuals();
 
 		m_EyeAdaptTextTimer += timeslice;
@@ -314,6 +338,14 @@ modded class MissionGameplay
 
 		// Halo around bright light and the soft look, set on the glow material directly (see EyeAdaptBloom)
 		EyeAdaptBloom.Apply(m_EyeAdaptGlow, soft);
+	}
+
+	// By day with no blowout, glow or dazzle still fading out (and no glare test), the glare updates would only compute zeros
+	protected bool IsEyeAdaptGlareIdle()
+	{
+		return m_EyeAdaptNight <= 0 && !m_EyeAdaptGlareTest
+			&& m_EyeAdaptGlareTime < 0 && m_EyeAdaptGlare <= 0 && m_EyeAdaptGlow <= 0.001
+			&& m_EyeAdaptDazzleTime < 0 && m_EyeAdaptDazzle <= 0;
 	}
 
 	// Shared by blowout and dazzle: 0 right after one ended, 1 after GlareRecoverySeconds (linear)
