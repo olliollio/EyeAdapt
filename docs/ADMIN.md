@@ -371,7 +371,7 @@ The mod was designed so that the cost stays small and does not grow with the siz
 |---|---|---|---|
 | Client | Light scan | every `ScanInterval` (0.25 s) | Number of lights near the player |
 | Client | Adaptation update, visuals | every frame | Constant, a handful of arithmetic operations and a few post-processing parameters |
-| Client | Report to the server | every `ReportIntervalSeconds` (15 s) | One tiny RPC |
+| Client | Report to the server | every `ReportIntervalSeconds` (15 s), at night only | One tiny RPC |
 | Server | Save all online players | every `SaveIntervalSeconds` (120 s) | One small JSON file per online player |
 | Server | Save one player | on disconnect | One small JSON file |
 | Server | Night length measurement | per tick | A few arithmetic operations |
@@ -443,7 +443,7 @@ Every key in `config.json` with its default. Section numbers point to the explan
 | `DebugLogging` | false | Client script log: status lines every 5 s and event lines (6.5). |
 | `ShowAdaptation` | false | On-screen text "NA 73 %" in the top left, updated every second. Players could read their NA from it, so leave it off on live servers. |
 | `StartAdaptation` | 1.0 | NA for fresh characters and players without a record (2.3). |
-| `ReportIntervalSeconds` | 15 | Client reports its NA to the server this often. |
+| `ReportIntervalSeconds` | 15 | Client reports its NA to the server this often, at night only (plus once when logout starts). |
 | `SaveIntervalSeconds` | 120 | Server saves all online players this often. 0 = only on logout and shutdown. |
 
 ### 7.2 Adaptation curve (3.2, 3.3)
