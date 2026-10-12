@@ -134,7 +134,7 @@ class EyeAdaptSettings
 	// Numpad debug keys (set adaptation, toggle effect, print lights). Lets players cheat, switch off on live servers
 	bool DebugKeys = true;
 	bool DebugLogging = false;             // client script log: the two [EyeAdapt] status lines every 5 s and event lines (dazzle). Off = quiet log
-	bool ShowAdaptation = false;           // on-screen text with the current adaptation (NA), updated every 5 s. For testing, players could use it to read their NA
+	bool ShowAdaptation = false;           // on-screen text with the current adaptation (NA), updated every second. For testing, players could use it to read their NA
 
 	// Vanilla defaults for the light table (written to config.json when the key is missing)
 	static array<ref EyeAdaptLightEntry> DefaultLights()
