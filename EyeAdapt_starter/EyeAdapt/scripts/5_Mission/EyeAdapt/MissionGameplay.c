@@ -102,9 +102,11 @@ modded class MissionGameplay
 		float target = 1 - dose * EyeAdaptSettings.Get().MaxDoseEffect;
 		m_EyeAdapt.Update(timeslice, target);
 
-		// Report to the server, which saves the latest value on logout
+		// Report to the server, which saves the latest value on logout. Not by day: the effect is off and the
+		// value is irrelevant by the next night (the logout report in StartLogoutMenu is always sent).
+		// m_EyeAdaptNight is last frame's value, the timer keeps running so the first report comes right at dusk
 		m_EyeAdaptReportTimer += timeslice;
-		if (m_EyeAdaptReportTimer >= EyeAdaptSettings.Get().ReportIntervalSeconds)
+		if (m_EyeAdaptReportTimer >= EyeAdaptSettings.Get().ReportIntervalSeconds && m_EyeAdaptNight > 0)
 		{
 			m_EyeAdaptReportTimer = 0;
 			EyeAdaptClient.Report(m_EyeAdapt.Get());
