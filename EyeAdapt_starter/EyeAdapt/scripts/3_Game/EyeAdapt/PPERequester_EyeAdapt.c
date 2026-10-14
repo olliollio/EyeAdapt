@@ -6,6 +6,7 @@ class PPERequester_EyeAdapt extends PPERequester_GameplayBase
 	static const int L_EV = 450;        // exposure: above NVG (100/200) and flashbang (400), below burlap sack (500) and death (1000)
 	static const int L_SAT = 150;       // saturation: above blood loss (100), LOWEST so we never re-saturate a bleeding player
 	static const int L_CONTRAST = 100;  // contrast: unused by vanilla
+	static const int L_OFFSET = 100;    // colour offset (black point): unused by vanilla
 	static const int L_TINT = 250;      // colorization: between toxic tint (200) and heavy metal poisoning (300)
 	static const int L_OVERLAY_F = 350; // overlay factor: between flashbang (300) and shock (500), HIGHEST
 	static const int L_OVERLAY_C = 550; // overlay colour: above flashbang (500). We yield while a flashbang runs anyway
@@ -29,8 +30,9 @@ class PPERequester_EyeAdapt extends PPERequester_GameplayBase
 	// ev: extra exposure in EV stops. saturation: 1 = vanilla, 0 = grey.
 	// contrast: 1 = vanilla (range 0..2). tint: colour multiplier, TINT_NEUTRAL = vanilla.
 	// overlay: white haze for glare, 0 = none. grain: film grain intensity 0..1, 0 = none.
+	// offset: black point shift after the tonemap, 0 = vanilla, negative = darker blacks.
 	// Neutral values release the parameter, so the vanilla look is untouched.
-	void Apply(float ev, float saturation, float contrast, vector tint, float overlay = 0, float grain = 0)
+	void Apply(float ev, float saturation, float contrast, vector tint, float overlay = 0, float grain = 0, float offset = 0)
 	{
 		if (PPEManagerStatic.GetPPEManager().IsAnyRequesterRunning(YIELD_TO))
 		{
@@ -40,6 +42,7 @@ class PPERequester_EyeAdapt extends PPERequester_GameplayBase
 			tint = TINT_NEUTRAL;
 			overlay = 0;
 			grain = 0;
+			offset = 0;
 		}
 
 		if (ev <= 0.001)
@@ -56,6 +59,11 @@ class PPERequester_EyeAdapt extends PPERequester_GameplayBase
 			SetTargetValueFloatDefault(PostProcessEffectType.Glow, PPEGlow.PARAM_CONTRAST);
 		else
 			SetTargetValueFloat(PostProcessEffectType.Glow, PPEGlow.PARAM_CONTRAST, false, contrast, L_CONTRAST, PPOperators.SET);
+
+		if (offset > -0.0005)
+			SetTargetValueFloatDefault(PostProcessEffectType.Glow, PPEGlow.PARAM_OFFSET);
+		else
+			SetTargetValueFloat(PostProcessEffectType.Glow, PPEGlow.PARAM_OFFSET, false, offset, L_OFFSET, PPOperators.SET);
 
 		if (tint != m_LastTint)
 		{
