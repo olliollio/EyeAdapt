@@ -6,8 +6,8 @@
 // Bump CURRENT_VERSION (and the Version default) whenever fields are added, so existing files get the new keys.
 class EyeAdaptSettings
 {
-	static const int CURRENT_VERSION = 19;
-	int Version = 19;
+	static const int CURRENT_VERSION = 23;
+	int Version = 23;
 	bool Enabled = true;
 
 	// Adaptation curve: fast stage (pupil/cones) + slow stage (rods), each ~95 % after its time.
@@ -23,11 +23,11 @@ class EyeAdaptSettings
 	float AdaptMaxSeconds = 900.0;
 	float FastCurveSeconds = 20.0;
 	float FastCurveWeight = 0.3;           // share of the gain from the fast stage (0..1)
-	float StartAdaptation = 1.0;           // fresh characters and players without a saved record ("you were sleeping")
+	float AdaptCurvePower = 1.5;           // visual strength = adaptation ^ power (1 = linear). >1: early minutes subtle, the late phase counts more
+	float StartAdaptation = 0.2;           // fresh characters and players without a record since the last restart (dark start, like leaving a lit room)
 	float LightFastSeconds = 2.0;          // fast stage drops this fast under light
 	float LightSlowSeconds = 8.0;          // slow stage drops this fast under light (30 s left the scene overexposed at the fire for too long)
-	float ReportIntervalSeconds = 15.0;    // client reports its adaptation to the server this often (saved on logout)
-	float SaveIntervalSeconds = 120.0;     // server writes all online players' records this often (crash safety), 0 = only on logout
+	float ReportIntervalSeconds = 15.0;    // client reports its adaptation to the server this often (kept until the next login)
 
 	// Light exposure (dose)
 	float ScanInterval = 0.25;             // seconds between light scans (0.5 made the glare start noticeably late)
@@ -89,7 +89,8 @@ class EyeAdaptSettings
 	float MaxEvBoost = 5.0;                // EV stops under a clear full moon
 	float MaxDesaturation = 0.6;           // in the dark. Near light colour returns (cones take over), scaled down by the light dose
 	float ColorReturnSmoothSeconds = 0.5;  // smoothing of the colour return (the light scan runs every ScanInterval)
-	float MaxContrastBoost = 0.15;         // counters the grey/foggy look of a strong EV boost
+	float MaxContrastBoost = 0.125;        // counters the grey/foggy look of a strong EV boost (0.15 left the dark sky too bright in test)
+	float NightBlackLevel = -0.015;        // black point at full adaptation (colour offset, after the tonemap, 0 = off, 0..-0.1). The EV boost lifts the empty sky to grey, this pulls it back to black; stars and Milky Way are bright points and stay. Scaled like the contrast boost
 	float BlueShift = 0.1;                 // Purkinje effect, 0 = off
 	// Optional extras, off by default. Both scale with the rod vision (adaptation, less near light) and step aside for night vision
 	float NightGrain = 0.0;                // film grain at full adaptation, 0..1 (0 = off). Dark-adapted vision is noisy; also hurts gamma/brightness filter abuse
@@ -164,11 +165,35 @@ class EyeAdaptSettings
 		lights.Insert(new EyeAdaptLightEntry("EntranceLight", 4));
 		// Generator spotlight (radius 60 m)
 		lights.Insert(new EyeAdaptLightEntry("SpotlightLight", 1, "auto", 60));
+		// Smouldering fireplaces (fuel gone, still hot): vanilla has no light entity for the embers, the dose scan counts
+		// them with the campfire brightness times this Factor. Factor 0 = embers do not count
+		lights.Insert(new EyeAdaptLightEntry("FireplaceBase", 0.1, "full", 8));
+		// Enclosed fires: the table row is looked up by the class the light is attached to (not the light class), Factor = share
+		// of the light that gets out. "FireplaceOven" is not a class: it stands for the stone oven (a Fireplace in oven state)
+		lights.Insert(new EyeAdaptLightEntry("BarrelHoles_ColorBase", 0.5, "full"));
+		lights.Insert(new EyeAdaptLightEntry("FireplaceFireBarrel", 0.5, "full"));
+		lights.Insert(new EyeAdaptLightEntry("FireplaceIndoor", 0.3, "full"));
+		lights.Insert(new EyeAdaptLightEntry("OvenIndoor", 0.3, "full"));
+		lights.Insert(new EyeAdaptLightEntry("FireplaceOven", 0.3, "full"));
 		return lights;
 	}
 
 	[NonSerialized()]
 	protected ref map<string, int> m_LightIndex; // light class -> index in Lights, -1 = no entry
+
+	// Table row with exactly this ClassName (for rows that are not a class, like "FireplaceOven"), null if none
+	EyeAdaptLightEntry FindLightByName(string className)
+	{
+		if (!Lights)
+			Lights = DefaultLights();
+
+		foreach (EyeAdaptLightEntry entry : Lights)
+		{
+			if (entry && entry.ClassName == className)
+				return entry;
+		}
+		return null;
+	}
 
 	// Most specific table entry for a light class, null if none. Cached per class
 	EyeAdaptLightEntry FindLight(typename lightType)

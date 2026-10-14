@@ -2,7 +2,12 @@
 // One light that passed the cheap checks of the scan (pass 1), waiting for its occlusion test (pass 2)
 class EyeAdaptLightHit
 {
-	ScriptedLightBase Light;
+	ScriptedLightBase Light;  // null for smouldering embers
+	string Name;
+	vector Position;
+	Object Parent;            // ignored by the occlusion ray (the fireplace / the item the light sits on)
+	float Brightness;
+	float Radius;
 	EyeAdaptLightEntry Entry;
 	float Dose;       // before occlusion
 	float Glare;      // before occlusion
@@ -102,6 +107,22 @@ class EyeAdaptLightDose
 		}
 		m_LightCount = lights.Count();
 
+		// Smouldering fireplaces: no light entity in vanilla, counted as weak light sources
+		array<FireplaceBase> fireplaces = FireplaceBase.s_EyeAdaptFireplaces;
+		for (int j = fireplaces.Count() - 1; j >= 0; j--)
+		{
+			FireplaceBase fireplace = fireplaces[j];
+			if (!fireplace)
+			{
+				fireplaces.Remove(j);
+				continue;
+			}
+
+			EyeAdaptLightHit emberHit = CollectEmber(fireplace, eyePos, eyeDir);
+			if (emberHit)
+				InsertByDose(hits, emberHit);
+		}
+
 		// Pass 2: occlusion, strongest first
 		int raycasts = 0;
 		int skipped = 0;
@@ -126,7 +147,7 @@ class EyeAdaptLightDose
 				float occlusion;
 				if (cfg.MaxOcclusionChecks <= 0 || raycasts < cfg.MaxOcclusionChecks)
 				{
-					occlusion = GetOcclusionFactor(h.Light, eyePos, player, blocker);
+					occlusion = GetOcclusionFactor(h.Position, h.Parent, eyePos, player, blocker);
 					raycasts++;
 				}
 				else
@@ -149,7 +170,7 @@ class EyeAdaptLightDose
 				string tableEntry = "none";
 				if (h.Entry)
 					tableEntry = string.Format("%1 x%2 %3", h.Entry.ClassName, h.Entry.Factor, h.Entry.Type);
-				Print(string.Format("[EyeAdapt]   %1 | dose %2 | brightness %3 | radius %4 | spot %5 | own %6 | blocked by '%7' | table %8 | %9 m", h.Light.ClassName(), d, h.Light.m_Brightness, h.Light.m_Radius, h.IsSpot, h.IsOwnSpot, blocker, tableEntry, h.Distance));
+				Print(string.Format("[EyeAdapt]   %1 | dose %2 | brightness %3 | radius %4 | spot %5 | own %6 | blocked by '%7' | table %8 | %9 m", h.Name, d, h.Brightness, h.Radius, h.IsSpot, h.IsOwnSpot, blocker, tableEntry, h.Distance));
 			}
 
 			if (d <= 0)
@@ -162,7 +183,7 @@ class EyeAdaptLightDose
 			if (d > m_StrongestDose)
 			{
 				m_StrongestDose = d;
-				m_StrongestName = h.Light.ClassName();
+				m_StrongestName = h.Name;
 			}
 		}
 
@@ -230,7 +251,7 @@ class EyeAdaptLightDose
 			return null;
 
 		// Nominal brightness: the field, not GetBrightness() (that one is ~100 × flicker, lights.md §2)
-		float intensity = light.m_Brightness * factor * GetColorFactor(light, entry);
+		float intensity = light.m_Brightness * factor * GetColorFactor(light, entry) * GetEnclosureFactor(FireplaceBase.Cast(light.GetAttachmentParent()));
 		if (intensity <= 0)
 			return null;
 
@@ -276,6 +297,11 @@ class EyeAdaptLightDose
 
 		EyeAdaptLightHit hit = new EyeAdaptLightHit();
 		hit.Light = light;
+		hit.Name = light.ClassName();
+		hit.Position = light.GetWorldPosition();
+		hit.Parent = light.GetAttachmentParent();
+		hit.Brightness = light.m_Brightness;
+		hit.Radius = light.m_Radius;
 		hit.Entry = entry;
 		hit.Dose = d;
 		hit.Glare = glare;
@@ -285,15 +311,102 @@ class EyeAdaptLightDose
 		return hit;
 	}
 
+	// Share of the light that gets out of an enclosed fire (barrel with holes, oven, indoor fireplace), 1 = open.
+	// Looked up in the table by the class the light is attached to; the stone oven is a Fireplace in oven state and has the
+	// row "FireplaceOven". The plain "FireplaceBase" row belongs to the embers and is not an enclosure.
+	// No row (older config.json) = the defaults below.
+	const float ENCLOSURE_BARREL = 0.5;
+	const float ENCLOSURE_OVEN = 0.3;
+
+	protected float GetEnclosureFactor(FireplaceBase fireplace)
+	{
+		if (!fireplace)
+			return 1;
+
+		EyeAdaptSettings cfg = EyeAdaptSettings.Get();
+		EyeAdaptLightEntry entry;
+		float fallback = 1;
+		if (fireplace.IsOven())
+		{
+			entry = cfg.FindLightByName("FireplaceOven");
+			fallback = ENCLOSURE_OVEN;
+		}
+		else
+		{
+			entry = cfg.FindLight(fireplace.Type());
+			if (entry && entry.ClassName == "FireplaceBase")
+				entry = null;
+
+			if (fireplace.IsBarrelWithHoles() || fireplace.IsInherited(FireplaceFireBarrel))
+				fallback = ENCLOSURE_BARREL;
+			else if (fireplace.IsFireplaceIndoor() || fireplace.IsIndoorOven())
+				fallback = ENCLOSURE_OVEN;
+		}
+
+		if (entry)
+			return entry.Factor;
+		return fallback;
+	}
+
+	// Pass 1 for a smouldering fireplace (fuel gone, still hot): the campfire's brightness times the table row
+	// "FireplaceBase" (Factor, Range). No row = EMBER_FACTOR / EMBER_RANGE. Factor 0 switches embers off.
+	// No glare, a glow on the ground doesn't dazzle. Same distance falloff, view factor and occlusion as lights.
+	const float EMBER_FACTOR = 0.1;
+	const float EMBER_RANGE = 8;
+	const float EMBER_HEIGHT = 0.3; // light position above the fireplace origin (occlusion ray end)
+
+	protected EyeAdaptLightHit CollectEmber(FireplaceBase fireplace, vector eyePos, vector eyeDir)
+	{
+		if (!fireplace.EyeAdaptHasEmbers())
+			return null;
+
+		float factor = EMBER_FACTOR;
+		float range = EMBER_RANGE;
+		EyeAdaptLightEntry entry = EyeAdaptSettings.Get().FindLight(FireplaceBase);
+		if (entry)
+		{
+			factor = entry.Factor;
+			if (entry.Range > 0)
+				range = entry.Range;
+		}
+		if (factor <= 0)
+			return null;
+
+		vector pos = fireplace.GetPosition();
+		pos[1] = pos[1] + EMBER_HEIGHT;
+		vector toLight = pos - eyePos;
+		float dist = toLight.Length();
+		if (dist > range)
+			return null;
+
+		float intensity = FireplaceLight.m_FireplaceBrightness * factor * GetEnclosureFactor(fireplace);
+		float facing = Math.Max(vector.Dot(eyeDir, toLight.Normalized()), 0);
+		float view = Math.Lerp(EyeAdaptSettings.Get().ViewMinFactor, 1, facing);
+		float falloff = Math.Max(Math.Pow(dist, EyeAdaptSettings.Get().FalloffExponent), 1);
+		float d = intensity * view / falloff;
+		if (d < EyeAdaptSettings.Get().DoseThreshold)
+			return null;
+
+		EyeAdaptLightHit hit = new EyeAdaptLightHit();
+		hit.Entry = entry;
+		hit.Name = "Embers:" + fireplace.GetType();
+		hit.Position = pos;
+		hit.Parent = fireplace;
+		hit.Brightness = intensity;
+		hit.Radius = range;
+		hit.Dose = d;
+		hit.Distance = dist;
+		return hit;
+	}
+
 	// 1 = free line of sight eye -> light, lower = blocked. blocker gets the class of what's in the way ("" if free).
 	// Walls/terrain block most of it (a fire behind a wall still lights up the surroundings a bit),
 	// trees and bushes only part of it (light gets through the crown, and walking past trunks shouldn't flicker).
 	// The ray stops OCCLUSION_END_OFFSET before the light so the fireplace/torch/lamp model itself can't block it,
 	// and ignores our own player and the object the light is attached to.
-	protected float GetOcclusionFactor(ScriptedLightBase light, vector eyePos, Object player, out string blocker)
+	protected float GetOcclusionFactor(vector lightPos, Object lightParent, vector eyePos, Object player, out string blocker)
 	{
 		blocker = "";
-		vector lightPos = light.GetWorldPosition();
 		vector toLight = lightPos - eyePos;
 		float dist = toLight.Length();
 		if (dist <= EyeAdaptSettings.Get().OcclusionEndOffset)
@@ -304,7 +417,6 @@ class EyeAdaptLightDose
 		vector contactPos, contactDir;
 		int contactComponent;
 		set<Object> hits = new set<Object>();
-		Object lightParent = light.GetAttachmentParent();
 
 		if (!DayZPhysics.RaycastRV(eyePos, endPos, contactPos, contactDir, contactComponent, hits, player, lightParent, false, false, ObjIntersectView))
 			return GetGrassOcclusionFactor(eyePos, lightPos, blocker);

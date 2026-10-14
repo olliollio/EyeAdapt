@@ -1,6 +1,6 @@
 # EyeAdapt – Admin Guide
 
-For server admins. Work in progress: sections 1-6 explain the mod, section 7 lists every setting with its default, section 8 has example presets. Defaults are those of config version 19 (`EyeAdaptSettings.c`). If a value here differs from your generated `config.json`, the file is right.
+For server admins. Work in progress: sections 1-6 explain the mod, section 7 lists every setting with its default, section 8 has example presets. Defaults are those of config version 20 (`EyeAdaptSettings.c`). If a value here differs from your generated `config.json`, the file is right.
 
 ---
 
@@ -48,9 +48,9 @@ If the file has a JSON error the server logs `config.json could not be read` and
 
 ### 2.3 Player persistence
 
-- The server saves each player's adaptation in `<server>/profiles/EyeAdapt/players/<id>.json` (hashed ID, no plain Steam ID). It saves on disconnect, on shutdown and every `SaveIntervalSeconds`.
+- The server keeps each player's adaptation in memory (keyed by hashed ID, no plain Steam ID) and notes the time when they disconnect. Nothing is written to disk.
 - Time spent offline counts as time in the dark, so relogging gives nothing beyond what waiting would have given. Players without a record, and fresh characters, start at `StartAdaptation`.
-- To reset one player, delete their file. To reset everyone, delete the `players` folder.
+- A server restart (or crash) forgets everyone, so all players start at `StartAdaptation` again. With the default 0.2 that is a dark start (about 30 % after one minute, usable after 2-3 min), like stepping out of a lit room.
 - The mod does not write into character persistence. Removing the mod later cannot break characters.
 
 ### 2.4 Debug keys
@@ -195,7 +195,8 @@ At full NA (before ambient scaling):
 |---|---|---|
 | Brightness boost | `MaxEvBoost` | 5 EV |
 | Desaturation | `MaxDesaturation` | 0.6 (scaled down near light) |
-| Contrast boost | `MaxContrastBoost` | 0.15 (counters the grey look of a strong boost) |
+| Contrast boost | `MaxContrastBoost` | 0.25 (counters the grey look of a strong boost) |
+| Black point | `NightBlackLevel` | -0.03 (sky back to black after the EV boost) |
 | Blue shift | `BlueShift` | 0.1 (0 = off) |
 | Colour return smoothing | `ColorReturnSmoothSeconds` | 0.5 |
 
@@ -343,6 +344,10 @@ These use the default (Factor 1, `"auto"`, own radius). Colour decides whether t
 | `ExplosionLight` (fireworks launcher) | 250 | `full` | 60 | The light's nominal brightness is only 0.05, but vanilla sets its colours on a 0–255 scale, so the real light is about 250 times stronger. 250 brings it to roughly flare strength. All firework colours count the same. |
 | `EntranceLight` (Livonia bunker entrance and stairs, incl. `EntranceLightStairs1/2`, `Main1/2`) | 4 | `auto` | – | These vanilla lights are very dim (brightness 0.5, radius 5–10 m), so at factor 1 they barely moved NA. Underground there is no EV boost, so the effect shows when the player comes back up. |
 | `SpotlightLight` (generator spotlight) | 1 | `auto` | 60 | Own radius is 60 m. |
+| `FireplaceBase` (smouldering fireplaces, barrels, ovens: fuel gone, still hot) | 0.1 | `full` | 8 | Vanilla has no light for embers, so this row is not a light class: the scan counts them as weak point lights with the campfire brightness × Factor. 0 = embers do not count. Without a row the same defaults apply. |
+| `BarrelHoles_ColorBase`, `FireplaceFireBarrel` (barrel with holes, map fire barrel) | 0.5 | `full` | – | Enclosed fires: the row is looked up by the class the light is attached to, not by the light class. Factor = share of the light that gets out. Also applied to the embers of that fire. |
+| `FireplaceIndoor`, `OvenIndoor` (in-building fireplace, wall oven) | 0.3 | `full` | – | Same, enclosed. |
+| `FireplaceOven` (stone oven) | 0.3 | `full` | – | Not a class: stands for a stone-ring fireplace in oven state (same class as the campfire). |
 
 ### 5.5 Hard-coded in the mod (not in the table)
 
@@ -372,8 +377,7 @@ The mod was designed so that the cost stays small and does not grow with the siz
 | Client | Light scan | every `ScanInterval` (0.25 s) | Number of lights near the player |
 | Client | Adaptation update, visuals | every frame | Constant, a handful of arithmetic operations and a few post-processing parameters |
 | Client | Report to the server | every `ReportIntervalSeconds` (15 s), at night only | One tiny RPC |
-| Server | Save all online players | every `SaveIntervalSeconds` (120 s) | One small JSON file per online player |
-| Server | Save one player | on disconnect | One small JSON file |
+| Server | Remember one player | on report and disconnect | One small record in memory |
 | Server | Night length measurement | per tick | A few arithmetic operations |
 | Server | Config sync | once per connecting client | One RPC |
 
@@ -406,14 +410,12 @@ In a normal scene, only a few lights pass all the cheap checks, so a scan costs 
 | `UseGrassOcclusion` | `false` removes the terrain sampling but keeps the raycast. |
 | `GrassSampleStep` | Larger = fewer samples per light (4 m halves the grass cost), but it can miss narrow grassy crests. |
 | `DoseThreshold` | Higher = weak lights are dropped before occlusion is tested. |
-| `SaveIntervalSeconds` | Larger = fewer disk writes. 0 = save only on logout and shutdown, with the risk of losing recent values after a crash. |
 | `ReportIntervalSeconds` | Larger = fewer RPCs. The server only keeps the last value anyway. |
 | `DebugKeys` | `false` on live servers (also for cheating reasons). |
 
 ### 6.4 Server load
 
-- **File writes.** A save writes one small JSON file for each player who is online. With the default interval, 60 players means 60 small writes every two minutes. Raise `SaveIntervalSeconds` on very full servers if the profile folder sits on a slow disk.
-- **Disk space.** One small file per player who has ever played. Delete the `players` folder to reset everything.
+- **No disk writes.** Player records live in memory only, a few bytes per player who connected since the last restart.
 - **Network.** One config RPC per connecting client, and one small RPC per client every 15 s. This is negligible compared with vanilla traffic.
 - **No per-player server tick.** The server does not run a loop per player. Adaptation lives on the client, the server only stores it.
 
@@ -426,7 +428,6 @@ With `DebugLogging: true` the mod prints two `[EyeAdapt]` status lines to the cl
 1. Compare the frame time at night with and without the effect: Numpad 7 toggles it (needs `DebugKeys`).
 2. Stand in the worst case for your server (lit base, parked cars with lights on, several players with flashlights) and press Numpad 9 once. The log shows how many lights are registered, how many passed the cheap checks, how many raycasts were used, and how many lights were skipped because the dose was saturated.
 3. If the frame rate drops, lower `MaxOcclusionChecks` first, then try `UseOcclusion: false`. If that fixes it, raise `GrassSampleStep` or disable only `UseGrassOcclusion` instead.
-4. Watch the server frame time while players disconnect and during the periodic saves. A hitch every `SaveIntervalSeconds` means the disk is too slow, so raise the interval.
 ---
 
 ## 7. Settings reference
@@ -442,9 +443,8 @@ Every key in `config.json` with its default. Section numbers point to the explan
 | `DebugKeys` | true | Numpad debug keys (2.4). **Set to false on live servers.** |
 | `DebugLogging` | false | Client script log: status lines every 5 s and event lines (6.5). |
 | `ShowAdaptation` | false | On-screen text "NA 73 %" in the top left, updated every second. Players could read their NA from it, so leave it off on live servers. |
-| `StartAdaptation` | 1.0 | NA for fresh characters and players without a record (2.3). |
+| `StartAdaptation` | 0.2 | NA for fresh characters and players without a record (2.3). |
 | `ReportIntervalSeconds` | 15 | Client reports its NA to the server this often, at night only (plus once when logout starts). |
-| `SaveIntervalSeconds` | 120 | Server saves all online players this often. 0 = only on logout and shutdown. |
 
 ### 7.2 Adaptation curve (3.2, 3.3)
 
@@ -456,6 +456,7 @@ Every key in `config.json` with its default. Section numbers point to the explan
 | `AdaptMinSeconds` / `AdaptMaxSeconds` | 60 / 900 | Clamp for `relativeToNight`. |
 | `FastCurveSeconds` | 20 | Fast stage, ~95 % complete after this. |
 | `FastCurveWeight` | 0.3 | Share of the gain from the fast stage. |
+| `AdaptCurvePower` | 1.5 | Visual strength = adaptation ^ power. 1 = linear, higher = the first minutes show less and the late phase counts more. |
 | `LightFastSeconds` | 2 | Fast stage drop time under light. |
 | `LightSlowSeconds` | 8 | Slow stage drop time under light. |
 
@@ -514,7 +515,8 @@ Every key in `config.json` with its default. Section numbers point to the explan
 | `MaxEvBoost` | 5 | EV stops under a clear full moon at full NA. |
 | `MaxDesaturation` | 0.6 | Colour loss at full NA. |
 | `ColorReturnSmoothSeconds` | 0.5 | Smoothing of the colour return near light. |
-| `MaxContrastBoost` | 0.15 | Counters the foggy look of the boost. |
+| `MaxContrastBoost` | 0.25 | Counters the foggy look of the boost. |
+| `NightBlackLevel` | -0.03 | Black point at full adaptation (colour offset after the tonemap, 0 = off, 0 to -0.1). The EV boost lifts the empty night sky to grey, this pulls it back to black. Stars and the Milky Way are bright and stay. Scaled like the contrast boost. |
 | `BlueShift` | 0.1 | Purkinje effect. 0 = off. |
 | `NightGrain` | 0 | Film grain, 0 = off. |
 | `NightGrainSize` / `NightGrainFrequency` | 2.75 / 20 | Grain look. |

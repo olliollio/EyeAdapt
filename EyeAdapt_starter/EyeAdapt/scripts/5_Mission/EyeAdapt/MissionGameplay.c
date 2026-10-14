@@ -186,7 +186,8 @@ modded class MissionGameplay
 		if (m_EyeAdaptBypass || !EyeAdaptSettings.Get().Enabled)
 			return 0;
 
-		return Math.Round(m_EyeAdapt.Get() * m_EyeAdaptNight * 500) / 500;
+		// Ease-in: the first minutes show little, the late phase counts more (AdaptCurvePower)
+		return Math.Round(Math.Pow(m_EyeAdapt.Get(), EyeAdaptSettings.Get().AdaptCurvePower) * m_EyeAdaptNight * 500) / 500;
 	}
 
 	// Brightness is limited by what the sky offers (design rule 4), colour loss is not:
@@ -211,6 +212,7 @@ modded class MissionGameplay
 		float rodVision = s * (1 - m_EyeAdaptColorDose);
 		float saturation = 1 - rodVision * cfg.MaxDesaturation;
 		float contrast = 1 + s * m_EyeAdaptAmbient * cfg.MaxContrastBoost; // counters the haze of the EV boost, so it scales with it
+		float offset = s * m_EyeAdaptAmbient * cfg.NightBlackLevel; // pulls the sky lifted by the EV boost back to black
 
 		// Blue shift: keep blue, pull red down fully and green halfway
 		float shift = rodVision * cfg.BlueShift;
@@ -228,7 +230,7 @@ modded class MissionGameplay
 		// Optional film grain: rod vision only (none near light, none in daylight)
 		float grain = rodVision * cfg.NightGrain;
 
-		m_EyeAdaptPPE.Apply(ev, saturation, contrast, tint, overlay, grain);
+		m_EyeAdaptPPE.Apply(ev, saturation, contrast, tint, overlay, grain, offset);
 	}
 
 	// Glare in two phases (CLAUDE.md §3.4), both only for dark-adapted eyes facing light in the view centre:

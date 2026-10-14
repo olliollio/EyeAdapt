@@ -1,23 +1,21 @@
 // 3_Game: logout/login persistence (CLAUDE.md §3.6, docs/engine/mission-network.md §2, §10.4).
-// The client reports its adaptation periodically, the server keeps the latest value per player and
-// saves it to $profile:EyeAdapt/players/<id>.json on disconnect, together with a real-world timestamp.
-// On login the offline time counts as time in the dark, so a quick relog gives nothing extra
-// and a long break (or a server restart overnight) means full night vision.
+// The client reports its adaptation periodically, the server keeps the latest value per player in memory
+// and stamps the time on disconnect. On login the offline time counts as time in the dark, so a quick relog
+// gives nothing extra and a long break means full night vision.
+// Memory only, no files: a server restart (or crash) forgets everyone, so they start at StartAdaptation,
+// which by default means full vision, same as an overnight break ("you were sleeping").
 
-// One player's saved state (JSON file)
+// One player's state
 class EyeAdaptRecord
 {
 	float Adaptation;
-	int SavedAtUnix;
-
-	[NonSerialized()]
+	int SavedAtMs;      // server uptime (g_Game.GetTime) of the last update
 	int m_LastReportMs; // rate limit for client reports
 }
 
 // Server-side store, keyed by PlayerIdentity.GetId() (hashed Steam ID, the same id PlayerDisconnected gets as uid)
 class EyeAdaptStore
 {
-	static const string DIR = "$profile:EyeAdapt/players";
 	static const int REPORT_MIN_INTERVAL_MS = 2000;
 
 	protected static ref map<string, ref EyeAdaptRecord> s_Records = new map<string, ref EyeAdaptRecord>();
@@ -26,22 +24,16 @@ class EyeAdaptStore
 	static float Restore(string id, bool fresh)
 	{
 		float start = Math.Clamp(EyeAdaptSettings.Get().StartAdaptation, 0, 1);
-		if (fresh)
+		EyeAdaptRecord rec = s_Records.Get(id);
+		if (fresh || !rec)
 		{
-			SetRecord(id, start);
-			return start;
-		}
-
-		EyeAdaptRecord rec = GetRecord(id);
-		if (!rec)
-		{
-			// No record yet (first time with the mod): treat like a fresh character
+			// New character, or no record since the last restart: treat like a fresh start
 			SetRecord(id, start);
 			return start;
 		}
 
 		// Offline time counts as darkness, at the slow stage's rate (same curve as EyeAdaptState)
-		float offline = Math.Max(UnixNow() - rec.SavedAtUnix, 0);
+		float offline = Math.Max(g_Game.GetTime() - rec.SavedAtMs, 0) / 1000.0;
 		float seconds = EyeAdaptSettings.GetFullAdaptSeconds();
 		float restored = 1;
 		if (seconds > 0)
@@ -53,7 +45,7 @@ class EyeAdaptStore
 		return restored;
 	}
 
-	// Latest in-memory value (reconnect during the logout countdown), -1 if unknown
+	// Latest value (reconnect during the logout countdown), -1 if unknown
 	static float GetCurrent(string id)
 	{
 		EyeAdaptRecord rec = s_Records.Get(id);
@@ -82,50 +74,16 @@ class EyeAdaptStore
 
 		rec.m_LastReportMs = now;
 		rec.Adaptation = value;
-		rec.SavedAtUnix = UnixNow();
+		rec.SavedAtMs = now;
 	}
 
-	// Disconnect (identity may already be gone, so it takes the id). Writes the file and forgets the record
-	static void Save(string id)
-	{
-		EyeAdaptRecord rec = s_Records.Get(id);
-		if (!rec)
-			return;
-
-		rec.SavedAtUnix = UnixNow();
-		WriteFile(id, rec);
-		s_Records.Remove(id);
-	}
-
-	// Server shutdown
-	static void SaveAll()
-	{
-		int now = UnixNow();
-		foreach (string id, EyeAdaptRecord rec : s_Records)
-		{
-			rec.SavedAtUnix = now;
-			WriteFile(id, rec);
-		}
-	}
-
-	protected static EyeAdaptRecord GetRecord(string id)
+	// Disconnect (identity may already be gone, so it takes the id). Offline time starts now.
+	// The record stays, it's a few bytes per player until the next restart
+	static void OnDisconnect(string id)
 	{
 		EyeAdaptRecord rec = s_Records.Get(id);
 		if (rec)
-			return rec;
-
-		string path = GetPath(id);
-		if (!FileExist(path))
-			return null;
-
-		rec = new EyeAdaptRecord();
-		string error;
-		if (!JsonFileLoader<EyeAdaptRecord>.LoadFile(path, rec, error))
-		{
-			ErrorEx("[EyeAdapt] could not read " + path + ": " + error);
-			return null;
-		}
-		return rec;
+			rec.SavedAtMs = g_Game.GetTime();
 	}
 
 	protected static void SetRecord(string id, float adaptation)
@@ -137,46 +95,7 @@ class EyeAdaptStore
 			s_Records.Set(id, rec);
 		}
 		rec.Adaptation = adaptation;
-		rec.SavedAtUnix = UnixNow();
-	}
-
-	protected static void WriteFile(string id, EyeAdaptRecord rec)
-	{
-		if (!FileExist("$profile:EyeAdapt"))
-			MakeDirectory("$profile:EyeAdapt");
-		if (!FileExist(DIR))
-			MakeDirectory(DIR);
-
-		string error;
-		if (!JsonFileLoader<EyeAdaptRecord>.SaveFile(GetPath(id), rec, error))
-			ErrorEx("[EyeAdapt] could not write player record: " + error);
-	}
-
-	// GetId() is base64-like and may contain / + =, which don't belong in file names
-	protected static string GetPath(string id)
-	{
-		string safe = id;
-		safe.Replace("/", "_");
-		safe.Replace("+", "-");
-		safe.Replace("=", "");
-		return DIR + "/" + safe + ".json";
-	}
-
-	// Unix time in seconds (UTC). Vanilla has no such helper (days-from-civil algorithm, valid until 2038)
-	static int UnixNow()
-	{
-		int y, mo, d, h, mi, s;
-		GetYearMonthDayUTC(y, mo, d);
-		GetHourMinuteSecondUTC(h, mi, s);
-		if (mo <= 2)
-			y -= 1;
-		int era = y / 400;
-		int yoe = y - era * 400;
-		int mp = (mo + 9) % 12;
-		int doy = (153 * mp + 2) / 5 + d - 1;
-		int doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
-		int days = era * 146097 + doe - 719468;
-		return days * 86400 + h * 3600 + mi * 60 + s;
+		rec.SavedAtMs = g_Game.GetTime();
 	}
 }
 

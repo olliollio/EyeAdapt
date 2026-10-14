@@ -1,10 +1,9 @@
 // 5_Mission: server side. Loads the config, sends it to each connecting client,
-// restores adaptation on login and saves it on logout (docs/engine/mission-network.md §2.3).
+// restores adaptation on login and remembers it on logout (docs/engine/mission-network.md §2.3).
 modded class MissionServer
 {
 	// Set in OnClientNewEvent, read in InvokeOnConnect right after it (same engine event)
 	protected bool m_EyeAdaptFreshCharacter;
-	protected float m_EyeAdaptSaveTimer;
 
 	override void OnInit()
 	{
@@ -56,37 +55,19 @@ modded class MissionServer
 	}
 
 	// Final disconnect after the logout countdown. identity can already be deleted, uid is GetId() captured earlier.
-	// Save before super, which deletes the body
+	// Offline time starts here
 	override void PlayerDisconnected(PlayerBase player, PlayerIdentity identity, string uid)
 	{
-		EyeAdaptStore.Save(uid);
+		EyeAdaptStore.OnDisconnect(uid);
 		super.PlayerDisconnected(player, identity, uid);
 	}
 
-	// Periodic save, so a crash or a killed server process loses at most SaveIntervalSeconds
 	override void OnUpdate(float timeslice)
 	{
 		super.OnUpdate(timeslice);
 
 		// Night length for AdaptationMode "relativeToNight" (the offline curve in the persistence uses it too)
 		EyeAdaptNightClock.Update(timeslice);
-
-		float interval = EyeAdaptSettings.Get().SaveIntervalSeconds;
-		if (interval <= 0)
-			return;
-
-		m_EyeAdaptSaveTimer += timeslice;
-		if (m_EyeAdaptSaveTimer >= interval)
-		{
-			m_EyeAdaptSaveTimer = 0;
-			EyeAdaptStore.SaveAll();
-		}
-	}
-
-	override void OnMissionFinish()
-	{
-		EyeAdaptStore.SaveAll();
-		super.OnMissionFinish();
 	}
 
 	protected void EyeAdaptSendRestore(PlayerIdentity identity, float value)
