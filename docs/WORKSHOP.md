@@ -67,7 +67,12 @@ Make darkness something you [b]manage[/b], not a fixed setting. Your eyes adapt 
 [/list]
 
 [h2]Compatibility[/h2]
-[TODO: test with common lighting / night mods and fill in]
+[list]
+[*] Tested with CF and VPPAdminTools loaded, on Chernarus, Livonia and Namalsk.
+[*] Vanilla night vision goggles and flashbang effects take priority: while they run, EyeAdapt steps aside.
+[*] Maps and mods with their own sunrise/sunset times are picked up automatically. Lights from other mods count with default values, add them to the light table (Numpad 9 with DebugKeys prints their class names).
+[*] [b]Not tested yet:[/b] lighting and night overhaul mods that change exposure or glow settings, other post-processing mods. If you run one, tell me how it behaves.
+[/list]
 
 [h2]Changelog[/h2]
 [b]0.2.0[/b]
@@ -88,8 +93,9 @@ Make darkness something you [b]manage[/b], not a fixed setting. Your eyes adapt 
 Two stages, like real eyes: a fast one (pupil and cones, about 20 s) and a slow one (rods, 10 minutes by default). The visual effect builds up gradually, so the first minutes show little and the last stretch counts most. Light pulls adaptation down much faster than darkness raises it.
 
 [h2]Feedback[/h2]
-Found a bug or want a feature? [TODO: link to GitHub issues or Discord]
-Source: [TODO: github.com/olliollio/EyeAdapt, if you want it public]
+Found a bug or want a feature? Open an issue on GitHub: https://github.com/olliollio/EyeAdapt/issues
+Source: https://github.com/olliollio/EyeAdapt
+Admin guide: https://github.com/olliollio/EyeAdapt/blob/main/docs/ADMIN.md
 ```
 
 ---
