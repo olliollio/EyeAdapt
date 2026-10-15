@@ -71,6 +71,7 @@ Make darkness something you [b]manage[/b], not a fixed setting. Your eyes adapt 
 
 [h2]Changelog[/h2]
 [b]0.2.0[/b]
+[b]Server owners: update the mod on your server too.[/b] Clients get the new version from the Workshop, a server on an older version kicks them with "Client has a corrupt or modified PBO". After updating, copy the new keys\EyeAdapt.bikey into the server's keys folder and restart. Your config.json stays as it is.
 [list]
 [*] [b]New:[/b] [b]FullMoonShare[/b] (default 0.8) caps how bright a clear full moon night gets. Real-time servers with dark nights found it too bright before.
 [*] [b]New:[/b] light table in config.json: per light type a brightness factor, colour handling (auto / red / full) and range. Muzzle flashes are ignored, flares, headlights and fireworks count more.
