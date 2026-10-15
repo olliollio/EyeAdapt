@@ -41,7 +41,8 @@ class EyeAdaptStore
 
 		restored = Math.Clamp(restored, 0, 1);
 		SetRecord(id, restored);
-		Print(string.Format("[EyeAdapt] restore %1: saved %2, offline %3 s -> %4", id, rec.Adaptation, offline, restored));
+		if (EyeAdaptSettings.Get().DebugLogging)
+			Print(string.Format("[EyeAdapt] restore %1: saved %2, offline %3 s -> %4", id, rec.Adaptation, offline, restored));
 		return restored;
 	}
 

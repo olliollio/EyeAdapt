@@ -37,7 +37,8 @@ modded class MissionGameplay
 		{
 			m_EyeAdapt = new EyeAdaptState();
 			m_EyeAdaptDose = new EyeAdaptLightDose();
-			Print("[EyeAdapt] loaded");
+			if (EyeAdaptSettings.Get().DebugLogging)
+				Print("[EyeAdapt] loaded");
 		}
 	}
 

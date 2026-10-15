@@ -57,8 +57,8 @@ class EyeAdaptEnvironment
 	// Natural night light 0..1 relative to a clear full-moon night
 	static float GetSkyLight()
 	{
-		// Moon: clear moonless sky still has starlight
-		float sky = Math.Lerp(EyeAdaptSettings.Get().StarlightShare, 1, GetMoonLight());
+		// Moon: clear moonless sky still has starlight, a clear full moon is capped at FullMoonShare
+		float sky = Math.Lerp(EyeAdaptSettings.Get().StarlightShare, EyeAdaptSettings.Get().FullMoonShare, GetMoonLight());
 
 		// Clouds: the engine blends clear (overcast 0.35) into fully overcast (1.0) lighting,
 		// and its fully overcast night has no moonlight at all
