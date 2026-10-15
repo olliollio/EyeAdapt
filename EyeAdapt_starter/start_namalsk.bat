@@ -15,7 +15,7 @@ if exist "%~dp0paths.local.bat" call "%~dp0paths.local.bat"
 
 rem 1 = also load VPPAdminTools (needs CF) for teleport/time/weather while testing, 0 = EyeAdapt only.
 rem Admin access: Steam64 ID in %SERVER%\profiles\VPPAdminTools\Permissions\SuperAdmins\SuperAdmins.txt
-set ADMIN=1
+set ADMIN=0
 set WORKSHOP=%DAYZ%\!Workshop
 
 rem Server config: serverDZ.cfg (real time) or serverDZ_fasttime.cfg (12x day, 48x night, for testing AdaptationMode "relativeToNight")
@@ -35,14 +35,14 @@ if exist "%KEY%" (
 robocopy "%BUILD%" "%SERVER%\%MOD%" /MIR /NJH /NJS /NDL /NFL >nul
 robocopy "%BUILD%" "%DAYZ%\%MOD%" /MIR /NJH /NJS /NDL /NFL >nul
 
-set SERVERMODS=%MOD%
-set CLIENTMODS=%MOD%
+rem Namalsk is required on server and client. The server has no !Workshop folder, so copy the mods next to it; client loads them from !Workshop
+robocopy "%WORKSHOP%\@Namalsk Island" "%SERVER%\@Namalsk Island" /MIR /NJH /NJS /NDL /NFL >nul
+robocopy "%WORKSHOP%\@Namalsk Survival" "%SERVER%\@Namalsk Survival" /MIR /NJH /NJS /NDL /NFL >nul
+set SERVERMODS=@Namalsk Island;@Namalsk Survival;%MOD%
+set CLIENTMODS=!Workshop\@Namalsk Island;!Workshop\@Namalsk Survival;%MOD%
 if "%ADMIN%"=="1" (
-	rem Server has no !Workshop folder, so copy the workshop mods next to it; client loads them from !Workshop
 	robocopy "%WORKSHOP%\@CF" "%SERVER%\@CF" /MIR /NJH /NJS /NDL /NFL >nul
 	robocopy "%WORKSHOP%\@VPPAdminTools" "%SERVER%\@VPPAdminTools" /MIR /NJH /NJS /NDL /NFL >nul
-	robocopy "%WORKSHOP%\@Namalsk Island" "%SERVER%\@Namalsk Island" /MIR /NJH /NJS /NDL /NFL >nul
-	robocopy "%WORKSHOP%\@Namalsk Survival" "%SERVER%\@Namalsk Survival" /MIR /NJH /NJS /NDL /NFL >nul
 	set SERVERMODS=@CF;@VPPAdminTools;@Namalsk Island;@Namalsk Survival;%MOD%
 	set CLIENTMODS=!Workshop\@CF;!Workshop\@VPPAdminTools;!Workshop\@Namalsk Island;!Workshop\@Namalsk Survival;%MOD%
 )
