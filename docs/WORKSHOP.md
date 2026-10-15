@@ -46,9 +46,9 @@ Make darkness something you [b]manage[/b], not a fixed setting. Your eyes adapt 
 [*] Everything is configurable in [b]profiles/EyeAdapt/config.json[/b]. No repacking. Edit, restart, done.
 [*] Adaptation time: fixed seconds, or a share of the measured night length, so accelerated time is covered automatically.
 [*] Light table: set the strength of every light type (fire, torch, flashlight, headlights, flares, chemlights, ...).
-[*] Tune brightness gain, desaturation, glare strength, light falloff and more.
+[*] Tune brightness gain, how bright a full moon night gets, desaturation, glare strength, light falloff and more.
 [*] Missing keys fall back to defaults. Your edits survive mod updates.
-[*] Per-player data in separate JSON files with hashed IDs. Delete a file to reset a player.
+[*] Player adaptation is kept in server memory only: no player files, a restart counts as sleep.
 [*] Does not write into character persistence, so removing the mod cannot break characters.
 [*] Full admin guide included.
 [/list]
@@ -68,6 +68,23 @@ Make darkness something you [b]manage[/b], not a fixed setting. Your eyes adapt 
 
 [h2]Compatibility[/h2]
 [TODO: test with common lighting / night mods and fill in]
+
+[h2]Changelog[/h2]
+[b]0.2.0[/b]
+[list]
+[*] [b]New:[/b] [b]FullMoonShare[/b] (default 0.8) caps how bright a clear full moon night gets. Real-time servers with dark nights found it too bright before.
+[*] [b]New:[/b] light table in config.json: per light type a brightness factor, colour handling (auto / red / full) and range. Muzzle flashes are ignored, flares, headlights and fireworks count more.
+[*] [b]New:[/b] a flash grenade hit drops your adaptation (FlashbangAdaptationLoss, 0 = off).
+[*] [b]Changed:[/b] full adaptation takes 10 minutes by default (was 3). Setting: FullAdaptSeconds.
+[*] [b]Changed:[/b] new and fresh characters start dark-adapted at 20 % (StartAdaptation), like stepping out of a lit room.
+[*] [b]Changed:[/b] adaptation is kept in server memory only, no player files. Relogging still gains nothing, a server restart counts as sleep.
+[*] [b]Changed:[/b] DebugKeys is off by default, so players can't cheat with the numpad.
+[*] [b]Fixed:[/b] log spam. Debug logging is off by default now (DebugLogging).
+[*] New config keys are added to your config.json automatically, your own values stay.
+[/list]
+
+[b]How the adaptation curve works[/b]
+Two stages, like real eyes: a fast one (pupil and cones, about 20 s) and a slow one (rods, 10 minutes by default). The visual effect builds up gradually, so the first minutes show little and the last stretch counts most. Light pulls adaptation down much faster than darkness raises it.
 
 [h2]Feedback[/h2]
 Found a bug or want a feature? [TODO: link to GitHub issues or Discord]
