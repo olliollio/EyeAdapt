@@ -5,6 +5,8 @@ Config changes: new keys are added to an existing `config.json` automatically, e
 
 ## [0.2.0] - 2026-10-15
 
+**Server owners: update the mod on your server too.** Clients get the new PBO from the Workshop, a server on an older version kicks them with "Client has a corrupt or modified PBO". After updating, copy the new `keys\EyeAdapt.bikey` into the server's `keys` folder and restart. Your `config.json` stays as it is.
+
 ### Added
 - `FullMoonShare` (default 0.8): share of `MaxEvBoost` under a clear full moon. Real-time servers with dark nights found full-moon nights too bright. `StarlightShare` uses the same scale. Config version 24.
 - Light table in `config.json` (`Lights`): per light class a brightness factor, colour handling (`auto` / `red` / `full`) and range. Muzzle flashes are ignored, flares, headlights and fireworks count more. Numpad 9 (with `DebugKeys`) prints the class names and matched entries, to add lights from other mods.
