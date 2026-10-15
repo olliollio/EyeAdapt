@@ -1,6 +1,6 @@
 # EyeAdapt – Admin Guide
 
-For server admins. Work in progress: sections 1-6 explain the mod, section 7 lists every setting with its default, section 8 has example presets. Defaults are those of config version 20 (`EyeAdaptSettings.c`). If a value here differs from your generated `config.json`, the file is right.
+For server admins. Work in progress: sections 1-6 explain the mod, section 7 lists every setting with its default, section 8 has example presets. Defaults are those of config version 24 (`EyeAdaptSettings.c`). If a value here differs from your generated `config.json`, the file is right.
 
 ---
 
@@ -50,7 +50,7 @@ If the file has a JSON error the server logs `config.json could not be read` and
 
 - The server keeps each player's adaptation in memory (keyed by hashed ID, no plain Steam ID) and notes the time when they disconnect. Nothing is written to disk.
 - Time spent offline counts as time in the dark, so relogging gives nothing beyond what waiting would have given. Players without a record, and fresh characters, start at `StartAdaptation`.
-- A server restart (or crash) forgets everyone, so all players start at `StartAdaptation` again. With the default 0.2 that is a dark start (about 30 % after one minute, usable after 2-3 min), like stepping out of a lit room.
+- A server restart (or crash) forgets everyone, so all players start at `StartAdaptation` again. With the default 0.2 that is a dark start, like stepping out of a lit room: the fast stage gives a first improvement within a minute, full night vision takes `FullAdaptSeconds` (default 10 min).
 - The mod does not write into character persistence. Removing the mod later cannot break characters.
 
 ### 2.4 Debug keys
@@ -113,7 +113,7 @@ How long full dark adaptation takes is set by `AdaptationMode`:
 
 | Mode | Behaviour |
 |---|---|
-| `"fixed"` | Full adaptation after `FullAdaptSeconds` real seconds in the dark (default 180 = 3 min). |
+| `"fixed"` | Full adaptation after `FullAdaptSeconds` real seconds in the dark (default 600 = 10 min). |
 | `"relativeToNight"` | `FullAdaptNightFraction` of the whole night's real length (sunset to sunrise, not of the time left; 0.2 = 20 %). The mod measures the night length itself, on client and server, so `serverTimeAcceleration` and `serverNightTimeAcceleration` are covered. The result is clamped to `AdaptMinSeconds` (60) .. `AdaptMaxSeconds` (900). Until the night is measured, `FullAdaptSeconds` is used. |
 
 Examples:
@@ -158,12 +158,13 @@ NA is only the *state of the eyes*. The brightness gain it produces depends on h
 
 `gain = MaxEvBoost × ambient × NA`
 
-`MaxEvBoost` (default 5 stops) is the gain under a clear full moon at full NA. The ambient factor lowers it:
+`MaxEvBoost` (default 5 stops) is the gain at full NA under the brightest sky the ambient factor allows. A clear full moon gives `FullMoonShare` of it, a clear new moon `StarlightShare`, phases in between are interpolated:
 
 | Condition | Setting | Effect |
 |---|---|---|
 | Moon | `MoonIntensityFull` (1.0) | Raw moon intensity that counts as full moonlight. |
-| Clear, moonless sky | `StarlightShare` (0.6) | Gain relative to a clear full moon night. |
+| Clear full moon | `FullMoonShare` (0.8) | Share of `MaxEvBoost` under a clear full moon. Lower it if full-moon nights look too bright (real-time servers with dark nights). 1 = full boost. |
+| Clear, moonless sky | `StarlightShare` (0.6) | Share of `MaxEvBoost` under a clear new moon, same scale as `FullMoonShare`. |
 | Overcast | `OvercastClear` (0.35), `OvercastFull` (1.0), `OvercastMinShare` (0.25) | Fully overcast sky gives at least this share of a clear sky. |
 | Darkest possible sky | `MinAmbientGain` (0.2) | Floor, as a share of `MaxEvBoost`. |
 | Underground | `UndergroundGain` (0) | Livonia bunkers, Sakhal. 0 = no gain, a flashlight is needed. |
@@ -195,8 +196,8 @@ At full NA (before ambient scaling):
 |---|---|---|
 | Brightness boost | `MaxEvBoost` | 5 EV |
 | Desaturation | `MaxDesaturation` | 0.6 (scaled down near light) |
-| Contrast boost | `MaxContrastBoost` | 0.25 (counters the grey look of a strong boost) |
-| Black point | `NightBlackLevel` | -0.03 (sky back to black after the EV boost) |
+| Contrast boost | `MaxContrastBoost` | 0.125 (counters the grey look of a strong boost) |
+| Black point | `NightBlackLevel` | -0.015 (sky back to black after the EV boost) |
 | Blue shift | `BlueShift` | 0.1 (0 = off) |
 | Colour return smoothing | `ColorReturnSmoothSeconds` | 0.5 |
 
@@ -421,7 +422,7 @@ In a normal scene, only a few lights pass all the cheap checks, so a scan costs 
 
 ### 6.5 Logging
 
-With `DebugLogging: true` the mod prints two `[EyeAdapt]` status lines to the client script log every 5 seconds, plus event lines (dazzle, flash grenade hit, restore after login). They are useful while testing but add up in a log file over a long session, so the default is `false` (quiet log). The lines do not affect frame rate noticeably, only log size. Numpad 9 output is not affected by this switch.
+With `DebugLogging: true` the mod prints two `[EyeAdapt]` status lines to the client script log every 5 seconds, plus event lines (dazzle, flash grenade hit, restore after login, night clock, glare bloom, settings received). With it off, the mod only logs the one-time server config load lines. The lines are useful while testing but add up in a log file over a long session, so the default is `false` (quiet log). The lines do not affect frame rate noticeably, only log size. Numpad 9 output is not affected by this switch.
 
 ### 6.6 How to measure on your server
 
@@ -438,9 +439,9 @@ Every key in `config.json` with its default. Section numbers point to the explan
 
 | Key | Default | Meaning |
 |---|---|---|
-| `Version` | 19 | Config version, set by the mod. |
+| `Version` | 24 | Config version, set by the mod. |
 | `Enabled` | true | Master switch. |
-| `DebugKeys` | true | Numpad debug keys (2.4). **Set to false on live servers.** |
+| `DebugKeys` | false | Numpad debug keys (2.4). **Set to false on live servers.** |
 | `DebugLogging` | false | Client script log: status lines every 5 s and event lines (6.5). |
 | `ShowAdaptation` | false | On-screen text "NA 73 %" in the top left, updated every second. Players could read their NA from it, so leave it off on live servers. |
 | `StartAdaptation` | 0.2 | NA for fresh characters and players without a record (2.3). |
@@ -451,7 +452,7 @@ Every key in `config.json` with its default. Section numbers point to the explan
 | Key | Default | Meaning |
 |---|---|---|
 | `AdaptationMode` | "fixed" | `"fixed"` or `"relativeToNight"`. |
-| `FullAdaptSeconds` | 180 | Full adaptation time in `fixed` mode (3 min). |
+| `FullAdaptSeconds` | 600 | Full adaptation time in `fixed` mode (10 min). |
 | `FullAdaptNightFraction` | 0.2 | Share of the whole night in `relativeToNight` mode. |
 | `AdaptMinSeconds` / `AdaptMaxSeconds` | 60 / 900 | Clamp for `relativeToNight`. |
 | `FastCurveSeconds` | 20 | Fast stage, ~95 % complete after this. |
@@ -501,7 +502,8 @@ Every key in `config.json` with its default. Section numbers point to the explan
 | `DuskOffsetHours` / `DuskHours` | 0 / 2 | Fade-in after sunset (in-game hours). |
 | `DawnOffsetHours` / `DawnHours` | -1.5 / 1.5 | Fade-out around sunrise (in-game hours). |
 | `MoonIntensityFull` | 1.0 | Raw moon intensity counted as full moonlight. |
-| `StarlightShare` | 0.6 | Clear moonless sky relative to full moon. |
+| `FullMoonShare` | 0.8 | Share of `MaxEvBoost` under a clear full moon. |
+| `StarlightShare` | 0.6 | Share of `MaxEvBoost` under a clear moonless sky. |
 | `OvercastClear` / `OvercastFull` | 0.35 / 1.0 | Overcast values that count as clear and as fully overcast. |
 | `OvercastMinShare` | 0.25 | Fully overcast relative to clear. |
 | `MinAmbientGain` | 0.2 | Floor as a share of `MaxEvBoost`. |
@@ -515,8 +517,8 @@ Every key in `config.json` with its default. Section numbers point to the explan
 | `MaxEvBoost` | 5 | EV stops under a clear full moon at full NA. |
 | `MaxDesaturation` | 0.6 | Colour loss at full NA. |
 | `ColorReturnSmoothSeconds` | 0.5 | Smoothing of the colour return near light. |
-| `MaxContrastBoost` | 0.25 | Counters the foggy look of the boost. |
-| `NightBlackLevel` | -0.03 | Black point at full adaptation (colour offset after the tonemap, 0 = off, 0 to -0.1). The EV boost lifts the empty night sky to grey, this pulls it back to black. Stars and the Milky Way are bright and stay. Scaled like the contrast boost. |
+| `MaxContrastBoost` | 0.125 | Counters the foggy look of the boost. |
+| `NightBlackLevel` | -0.015 | Black point at full adaptation (colour offset after the tonemap, 0 = off, 0 to -0.1). The EV boost lifts the empty night sky to grey, this pulls it back to black. Stars and the Milky Way are bright and stay. Scaled like the contrast boost. |
 | `BlueShift` | 0.1 | Purkinje effect. 0 = off. |
 | `NightGrain` | 0 | Film grain, 0 = off. |
 | `NightGrainSize` / `NightGrainFrequency` | 2.75 / 20 | Grain look. |

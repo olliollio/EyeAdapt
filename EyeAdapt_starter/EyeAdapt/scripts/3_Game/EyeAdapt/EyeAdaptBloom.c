@@ -23,7 +23,8 @@ class EyeAdaptBloom
 		if (s_Material == 0x0)
 		{
 			s_Material = PPEManagerStatic.GetPPEManager().EyeAdapt_GetMaterial(PostProcessEffectType.Glow);
-			Print(string.Format("[EyeAdapt] bloom: glow material found %1", s_Material != 0x0));
+			if (EyeAdaptSettings.Get().DebugLogging)
+				Print(string.Format("[EyeAdapt] bloom: glow material found %1", s_Material != 0x0));
 		}
 		if (s_Material == 0x0)
 			return;
@@ -43,7 +44,7 @@ class EyeAdaptBloom
 		bool first = !s_Active;
 		bool okIntensity = s_Material.SetParam("BloomIntensity", intensity);
 		bool okThreshold = s_Material.SetParam("BloomThreshold", threshold);
-		if (first)
+		if (first && EyeAdaptSettings.Get().DebugLogging)
 			Print(string.Format("[EyeAdapt] bloom on: intensity %1 threshold %2 (SetParam ok %3 / %4)", intensity, threshold, okIntensity, okThreshold));
 		s_Active = true;
 	}

@@ -3,7 +3,7 @@
 // Image paths are relative to this folder and must be .paa. The Workshop preview image is set separately on the Steam page (use Artwork\logo_large.png).
 name = "EyeAdapt - Eye Adaptation";
 author = "ollio";
-version = "0.1.0";
+version = "0.2.0";
 tooltip = "EyeAdapt";
 overview = "Simulates eye adaptation at night. Stay in the dark and your vision slowly improves, light (fire, flashlight, headlights) costs night vision, and sudden bright light while dark-adapted gives a short glare. Night only, never darker than the server's own night, fully configurable by server admins. Test build.";
 picture = "picture.paa";

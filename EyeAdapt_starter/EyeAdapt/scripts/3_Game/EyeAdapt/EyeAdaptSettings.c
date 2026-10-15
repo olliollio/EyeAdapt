@@ -6,8 +6,8 @@
 // Bump CURRENT_VERSION (and the Version default) whenever fields are added, so existing files get the new keys.
 class EyeAdaptSettings
 {
-	static const int CURRENT_VERSION = 23;
-	int Version = 23;
+	static const int CURRENT_VERSION = 24;
+	int Version = 24;
 	bool Enabled = true;
 
 	// Adaptation curve: fast stage (pupil/cones) + slow stage (rods), each ~95 % after its time.
@@ -17,7 +17,7 @@ class EyeAdaptSettings
 	//                                     (covers serverTimeAcceleration and serverNightTimeAcceleration),
 	//                                     clamped to AdaptMinSeconds..AdaptMaxSeconds. FullAdaptSeconds until measured
 	string AdaptationMode = "fixed";
-	float FullAdaptSeconds = 180.0;        // 3 min (decided 2026-10-10 for the first test release)
+	float FullAdaptSeconds = 600.0;        // 10 min (was 180 for the first test release, raised 2026-10-15 for the public release)
 	float FullAdaptNightFraction = 0.2;    // share of the WHOLE night length (sunset to sunrise), not of the time left. 0.2 = 20 %
 	float AdaptMinSeconds = 60.0;
 	float AdaptMaxSeconds = 900.0;
@@ -77,7 +77,8 @@ class EyeAdaptSettings
 
 	// Ambient light: the EV boost is scaled by moon/overcast/underground
 	float MoonIntensityFull = 1.0;         // raw GetMoonIntensity() that counts as full moonlight (vanilla: 0..1)
-	float StarlightShare = 0.6;            // clear moonless sky relative to clear full moon (0.4 looked nearly black in test)
+	float FullMoonShare = 0.8;             // share of MaxEvBoost under a clear full moon (1 = full boost; real-time servers with dark nights found 1.0 too bright)
+	float StarlightShare = 0.6;            // clear moonless sky, same scale as FullMoonShare, so the default new moon gets 60 % of MaxEvBoost (0.4 looked nearly black in test)
 	float OvercastClear = 0.35;
 	float OvercastFull = 1.0;
 	float OvercastMinShare = 0.25;         // fully overcast sky relative to clear
@@ -133,7 +134,7 @@ class EyeAdaptSettings
 	float DazzleEvBoost = 5.0;             // extra EV stops at full dazzle
 
 	// Numpad debug keys (set adaptation, toggle effect, print lights). Lets players cheat, switch off on live servers
-	bool DebugKeys = true;
+	bool DebugKeys = false;
 	bool DebugLogging = false;             // client script log: the two [EyeAdapt] status lines every 5 s and event lines (dazzle). Off = quiet log
 	bool ShowAdaptation = false;           // on-screen text with the current adaptation (NA), updated every second. For testing, players could use it to read their NA
 
@@ -375,7 +376,10 @@ modded class DayZGame
 			if (ctx.Read(data) && data.param1)
 			{
 				EyeAdaptSettings.Set(data.param1);
-				Print("[EyeAdapt] settings received from server");
+				{
+						if (data.param1.DebugLogging)
+							Print("[EyeAdapt] settings received from server");
+					}
 			}
 			else
 			{

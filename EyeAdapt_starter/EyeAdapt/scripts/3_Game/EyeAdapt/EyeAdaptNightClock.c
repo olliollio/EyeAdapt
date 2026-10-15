@@ -65,8 +65,9 @@ class EyeAdaptNightClock
 			s_Candidate = 0;
 		}
 
-		Print(string.Format("[EyeAdapt] night clock: %1 game h per real s, night lasts %2 real s, full adaptation %3 s",
-			s_HoursPerSecond, GetNightRealSeconds(), EyeAdaptSettings.GetFullAdaptSeconds()));
+		if (EyeAdaptSettings.Get().DebugLogging)
+			Print(string.Format("[EyeAdapt] night clock: %1 game h per real s, night lasts %2 real s, full adaptation %3 s",
+				s_HoursPerSecond, GetNightRealSeconds(), EyeAdaptSettings.GetFullAdaptSeconds()));
 	}
 
 	// Real seconds from sunset to sunrise at the measured speed, 0 = not measured yet
