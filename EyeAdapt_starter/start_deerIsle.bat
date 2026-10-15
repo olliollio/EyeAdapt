@@ -16,7 +16,7 @@ if exist "%~dp0paths.local.bat" call "%~dp0paths.local.bat"
 
 rem 1 = also load VPPAdminTools (needs CF) for teleport/time/weather while testing, 0 = EyeAdapt only.
 rem Admin access: Steam64 ID in %SERVER%\profiles\VPPAdminTools\Permissions\SuperAdmins\SuperAdmins.txt
-set ADMIN=0
+set ADMIN=1
 set WORKSHOP=%DAYZ%\!Workshop
 
 rem Server config: <DayZServer>\serverDZ_deerisle.cfg (real time, mission template dayzOffline.deerisle)
