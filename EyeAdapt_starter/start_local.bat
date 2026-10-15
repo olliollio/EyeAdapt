@@ -15,7 +15,7 @@ if exist "%~dp0paths.local.bat" call "%~dp0paths.local.bat"
 
 rem 1 = also load VPPAdminTools (needs CF) for teleport/time/weather while testing, 0 = EyeAdapt only.
 rem Admin access: Steam64 ID in %SERVER%\profiles\VPPAdminTools\Permissions\SuperAdmins\SuperAdmins.txt
-set ADMIN=1
+set ADMIN=0
 set WORKSHOP=%DAYZ%\!Workshop
 
 rem Server config: serverDZ.cfg (real time) or serverDZ_fasttime.cfg (12x day, 48x night, for testing AdaptationMode "relativeToNight")
