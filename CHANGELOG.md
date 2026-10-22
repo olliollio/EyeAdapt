@@ -3,6 +3,12 @@
 Format follows [Keep a Changelog](https://keepachangelog.com/). The version is `version` in `release/mod.cpp`.
 Config changes: new keys are added to an existing `config.json` automatically, existing values stay.
 
+## [Unreleased]
+
+### Changed
+- Performance: the light scan runs once a second by day (glare and dazzle are night only), post-processing values are only sent when they change, the night clock only runs in `relativeToNight` mode.
+- Grass occlusion off by default (`UseGrassOcclusion`), sample step 4 m, only for lights up to `GrassLightMaxHeight` (new, 1.5 m) above the ground. Config version 25; an existing `config.json` keeps its values, so set `UseGrassOcclusion` to false by hand if you want the cheaper default.
+
 ## [0.2.0] - 2026-10-15
 
 **Server owners: update the mod on your server too.** Clients get the new PBO from the Workshop, a server on an older version kicks them with "Client has a corrupt or modified PBO". After updating, copy the new `keys\EyeAdapt.bikey` into the server's `keys` folder and restart. Your `config.json` stays as it is.

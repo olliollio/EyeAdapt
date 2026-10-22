@@ -1,6 +1,6 @@
 # EyeAdapt – Admin Guide
 
-For server admins. Work in progress: sections 1-6 explain the mod, section 7 lists every setting with its default, section 8 has example presets. Defaults are those of config version 24 (`EyeAdaptSettings.c`). If a value here differs from your generated `config.json`, the file is right.
+For server admins. Work in progress: sections 1-6 explain the mod, section 7 lists every setting with its default, section 8 has example presets. Defaults are those of config version 25 (`EyeAdaptSettings.c`). If a value here differs from your generated `config.json`, the file is right.
 
 ---
 
