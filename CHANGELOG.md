@@ -3,7 +3,9 @@
 Format follows [Keep a Changelog](https://keepachangelog.com/). The version is `version` in `release/mod.cpp`.
 Config changes: new keys are added to an existing `config.json` automatically, existing values stay.
 
-## [Unreleased]
+## [0.3.0] - 2026-10-23
+
+**Server owners: update the mod on your server too.** Your `config.json` stays, new keys are added automatically (config version 26). Behaviour change: with the new default `LogoutMode` "keep", a long break no longer gives full night vision.
 
 ### Added
 - `LogoutMode`: what a returning player gets. `"keep"` (default) = the NA they logged off with, `"fixed"` = offline time counts as darkness up to `LogoutAdaptation` (0.2), `"sleep"` = offline time counts as darkness (the old behaviour, long break = full night vision). `RecordKeepDays` (30) forgets players in `"keep"` mode. Config version 26.
@@ -13,6 +15,9 @@ Config changes: new keys are added to an existing `config.json` automatically, e
 - Performance: the light scan runs once a second by day (glare and dazzle are night only), post-processing values are only sent when they change, the night clock only runs in `relativeToNight` mode.
 - Grass occlusion off by default (`UseGrassOcclusion`), sample step 4 m, only for lights up to `GrassLightMaxHeight` (new, 1.5 m) above the ground. Config version 25; an existing `config.json` keeps its values, so set `UseGrassOcclusion` to false by hand if you want the cheaper default.
 - `NightBlackLevel` off by default (0, was -0.015) and scaled with the ambient light squared: on dark server configs it crushed the whole night to pitch black. An existing `config.json` keeps its value, so set `NightBlackLevel` to 0 by hand.
+
+### Fixed
+- Mod logo showed as a white square in the main menu: the images are inside the PBO now.
 
 ## [0.2.0] - 2026-10-15
 
