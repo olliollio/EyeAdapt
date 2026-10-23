@@ -345,9 +345,12 @@ modded class MissionGameplay
 	// By day with no blowout, glow or dazzle still fading out (and no glare test), the glare updates would only compute zeros
 	protected bool IsEyeAdaptGlareIdle()
 	{
-		return m_EyeAdaptNight <= 0 && !m_EyeAdaptGlareTest
-			&& m_EyeAdaptGlareTime < 0 && m_EyeAdaptGlare <= 0 && m_EyeAdaptGlow <= 0.001
-			&& m_EyeAdaptDazzleTime < 0 && m_EyeAdaptDazzle <= 0;
+		// Enforce can't continue an expression on a line starting with &&, so one check per line
+		if (m_EyeAdaptNight > 0 || m_EyeAdaptGlareTest)
+			return false;
+		if (m_EyeAdaptGlareTime >= 0 || m_EyeAdaptGlare > 0 || m_EyeAdaptGlow > 0.001)
+			return false;
+		return m_EyeAdaptDazzleTime < 0 && m_EyeAdaptDazzle <= 0;
 	}
 
 	// Shared by blowout and dazzle: 0 right after one ended, 1 after GlareRecoverySeconds (linear)
