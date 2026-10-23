@@ -1,5 +1,5 @@
 // 5_Mission: server side. Loads the config, sends it to each connecting client,
-// restores adaptation on login and remembers it on logout (docs/engine/mission-network.md §2.3).
+// restores adaptation on login, remembers it on logout and saves it to profiles/EyeAdapt/adaptation.json (docs/engine/mission-network.md §2.3).
 modded class MissionServer
 {
 	// Set in OnClientNewEvent, read in InvokeOnConnect right after it (same engine event)
@@ -9,6 +9,7 @@ modded class MissionServer
 	{
 		super.OnInit();
 		EyeAdaptSettings.LoadServer();
+		EyeAdaptStore.Load();
 	}
 
 	// Runs before the player entity exists, same place vanilla syncs cfggameplay.json
@@ -18,7 +19,7 @@ modded class MissionServer
 		EyeAdaptSettings.SendTo(identity);
 	}
 
-	// New character (first spawn or after death): full vision, like waking up
+	// New character (first spawn or after death): starts at StartAdaptation
 	override PlayerBase OnClientNewEvent(PlayerIdentity identity, vector pos, ParamsReadContext ctx)
 	{
 		PlayerBase player = super.OnClientNewEvent(identity, pos, ctx);
@@ -68,6 +69,14 @@ modded class MissionServer
 
 		// Night length for AdaptationMode "relativeToNight" (the offline curve in the persistence uses it too)
 		EyeAdaptNightClock.Update(timeslice);
+		EyeAdaptStore.Update(timeslice);
+	}
+
+	// Shutdown: save everyone, online players with their current value (time freeze until they return)
+	override void OnMissionFinish()
+	{
+		EyeAdaptStore.Save();
+		super.OnMissionFinish();
 	}
 
 	protected void EyeAdaptSendRestore(PlayerIdentity identity, float value)

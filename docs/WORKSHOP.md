@@ -29,7 +29,7 @@ Make darkness something you [b]manage[/b], not a fixed setting. Your eyes adapt 
 [*] [b]Light discipline matters.[/b] A lit base is safe, but you will be nearly blind when you step out of it.
 [*] [b]A group leaving a lit camp[/b] is at a disadvantage against a lone player who has been in the dark for a while.
 [*] [b]Ambient light limits the gain.[/b] Full moon on an open field helps a lot. Overcast new moon in a forest helps little. Underground gives nothing, so bring a torch.
-[*] [b]No relog trick.[/b] Adaptation is saved on the server, and offline time counts only as time in the dark. Relogging gains nothing beyond waiting.
+[*] [b]No relog trick.[/b] Adaptation is saved on the server. By default you return with the night vision you logged off with, and a server restart freezes time. Relogging gains nothing.
 [*] [b]Also works on PvP servers.[/b] Dark ambushes, flares and flashbangs turn into real tactical tools.
 [/list]
 
@@ -48,7 +48,7 @@ Make darkness something you [b]manage[/b], not a fixed setting. Your eyes adapt 
 [*] Light table: set the strength of every light type (fire, torch, flashlight, headlights, flares, chemlights, ...).
 [*] Tune brightness gain, how bright a full moon night gets, desaturation, glare strength, light falloff and more.
 [*] Missing keys fall back to defaults. Your edits survive mod updates.
-[*] Player adaptation is kept in server memory only: no player files, a restart counts as sleep.
+[*] Logout behaviour is your choice: keep the value (default), a fixed cap, or offline time counts as sleep. Saved in one small file, a server restart freezes time.
 [*] Does not write into character persistence, so removing the mod cannot break characters.
 [*] Full admin guide included.
 [/list]

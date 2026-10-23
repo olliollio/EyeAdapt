@@ -1,6 +1,6 @@
 # EyeAdapt – Admin Guide
 
-For server admins. Work in progress: sections 1-6 explain the mod, section 7 lists every setting with its default, section 8 has example presets. Defaults are those of config version 25 (`EyeAdaptSettings.c`). If a value here differs from your generated `config.json`, the file is right.
+For server admins. Work in progress: sections 1-6 explain the mod, section 7 lists every setting with its default, section 8 has example presets. Defaults are those of config version 26 (`EyeAdaptSettings.c`). If a value here differs from your generated `config.json`, the file is right.
 
 ---
 
@@ -48,9 +48,19 @@ If the file has a JSON error the server logs `config.json could not be read` and
 
 ### 2.3 Player persistence
 
-- The server keeps each player's adaptation in memory (keyed by hashed ID, no plain Steam ID) and notes the time when they disconnect. Nothing is written to disk.
-- Time spent offline counts as time in the dark, so relogging gives nothing beyond what waiting would have given. Players without a record, and fresh characters, start at `StartAdaptation`.
-- A server restart (or crash) forgets everyone, so all players start at `StartAdaptation` again. With the default 0.2 that is a dark start, like stepping out of a lit room: the fast stage gives a first improvement within a minute, full night vision takes `FullAdaptSeconds` (default 10 min).
+- The server keeps each player's adaptation (keyed by hashed ID, no plain Steam ID) and notes the time when they disconnect. All records are saved to one file, `profiles/EyeAdapt/adaptation.json`, every 60 s and on shutdown.
+- `LogoutMode` decides what a returning player gets:
+
+  | Mode | Returning player gets |
+  |---|---|
+  | `"keep"` (default) | The NA they logged off with. Logged off at a fire = nearly blind on return, logged off in the dark = still adapted. |
+  | `"fixed"` | Offline time counts as darkness, but at most `LogoutAdaptation` (default 0.2). |
+  | `"sleep"` | Offline time counts as darkness, a long break means full night vision ("you were sleeping"). |
+
+  In every mode a quick relog gains nothing beyond what waiting in the dark would have given.
+- **A server restart is a time freeze.** Offline time continues where it stopped, the downtime doesn't count. Players who were online when the server went down return with the NA they had.
+- New characters (first spawn, after death) start at `StartAdaptation`. With the default 0.2 that is a dark start, like stepping out of a lit room: the fast stage gives a first improvement within a minute, full night vision takes `FullAdaptSeconds` (default 10 min).
+- Records that no longer matter are dropped: in `"sleep"` and `"fixed"` once offline time has taken the player to the same value as no record (1.0 or `LogoutAdaptation`), in `"keep"` after `RecordKeepDays` (30) of offline time while the server runs; such a player returns at `StartAdaptation`. Deleting `adaptation.json` while the server is stopped resets everyone the same way.
 - The mod does not write into character persistence. Removing the mod later cannot break characters.
 
 ### 2.4 Debug keys
@@ -103,7 +113,7 @@ Everything the player sees at night is driven by this value and by the available
 | Standing at a campfire at night | NA falls fast and stays low. The player sees the fire but cannot see into the dark. People in the dark can see the player. |
 | Looking at a light while fully adapted | Glare (see section 4), then NA is lower. |
 | Using night vision | NA drops by the NV dose (section 5.5). |
-| Logging in after a long break | Offline time counts as darkness, so NA is high ("you were sleeping"). Relogging quickly gains nothing. |
+| Logging in again | Depends on `LogoutMode` (2.3): by default the NA you logged off with. Relogging quickly gains nothing. |
 
 Colour returns near light: the closer and brighter the light, the more colour comes back, because the cones take over from the rods.
 
@@ -379,6 +389,7 @@ The mod was designed so that the cost stays small and does not grow with the siz
 | Client | Adaptation update, visuals | every frame | Constant, a handful of arithmetic operations and a few post-processing parameters (by day the glare math is skipped, and post-processing values are only sent when they change); the night factor is read once a second |
 | Client | Report to the server | every `ReportIntervalSeconds` (15 s), at night only | One tiny RPC |
 | Server | Remember one player | on report and disconnect | One small record in memory |
+| Server | Save all records | every 60 s and on shutdown | One small JSON file, a few dozen bytes per player |
 | Server | Night length measurement | per tick, only in `relativeToNight` mode | A few arithmetic operations |
 | Server | Config sync | once per connecting client | One RPC |
 
@@ -417,7 +428,7 @@ In a normal scene, only a few lights pass all the cheap checks, so a scan costs 
 
 ### 6.4 Server load
 
-- **No disk writes.** Player records live in memory only, a few bytes per player who connected since the last restart.
+- **One small file.** Player records live in memory and are written to `adaptation.json` once a minute, a few dozen bytes per player. Old records are dropped (2.3).
 - **Network.** One config RPC per connecting client, and one small RPC per client every 15 s. This is negligible compared with vanilla traffic.
 - **No per-player server tick.** The server does not run a loop per player. Adaptation lives on the client, the server only stores it.
 
@@ -440,12 +451,15 @@ Every key in `config.json` with its default. Section numbers point to the explan
 
 | Key | Default | Meaning |
 |---|---|---|
-| `Version` | 25 | Config version, set by the mod. |
+| `Version` | 26 | Config version, set by the mod. |
 | `Enabled` | true | Master switch. |
 | `DebugKeys` | false | Numpad debug keys (2.4). **Set to false on live servers.** |
 | `DebugLogging` | false | Client script log: status lines every 5 s and event lines (6.5). |
 | `ShowAdaptation` | false | On-screen text "NA 73 %" in the top left, updated every second. Players could read their NA from it, so leave it off on live servers. |
-| `StartAdaptation` | 0.2 | NA for fresh characters and players without a record (2.3). |
+| `StartAdaptation` | 0.2 | NA for new characters (2.3). |
+| `LogoutMode` | "keep" | What a returning player gets: `"keep"`, `"fixed"` or `"sleep"` (2.3). |
+| `LogoutAdaptation` | 0.2 | `"fixed"` only: highest NA a returning player gets. |
+| `RecordKeepDays` | 30 | `"keep"` only: forget a player after this much offline time (server uptime). 0 = never. |
 | `ReportIntervalSeconds` | 15 | Client reports its NA to the server this often, at night only (plus once when logout starts). |
 
 ### 7.2 Adaptation curve (3.2, 3.3)

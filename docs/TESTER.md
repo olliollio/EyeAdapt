@@ -99,7 +99,8 @@ The test build ships with glare off. Only test this section if the server owner 
 ### 4.9 Logout and login
 
 - Go to NA 1, log out and back in right away: you should keep roughly the same NA.
-- Stay logged out for a while: NA should be high on return (offline time counts as darkness).
+- Stay logged out for a while: with the default `LogoutMode` "keep" NA should be the same as when you left.
+- Restart the server while logged in: NA should be the same after the restart.
 - A quick relog should not give you more than waiting in the dark would have.
 
 ### 4.10 Day and dusk

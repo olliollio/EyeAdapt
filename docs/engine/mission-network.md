@@ -271,6 +271,8 @@ The skeleton compiles in principle and is fine for milestone 0. Concrete points:
 
 ## 10. Implications for EyeAdapt (recommended architecture)
 
+> **Changed 2026-10-23:** one save file `$profile:EyeAdapt/adaptation.json` (all players, offline seconds instead of a timestamp, saved every 60 s and in `OnMissionFinish`), `LogoutMode` keep/fixed/sleep. See `EyeAdaptPersistence.c`.
+>
 > **Changed 2026-10-11:** persistence is now memory only (no JSON files, no Unix time, no periodic save). The server keeps a record per `GetId()` with a `g_Game.GetTime()` timestamp. A restart forgets everyone, who then start at `StartAdaptation` (default 1.0 = "slept"). The file-based plan below is kept for reference.
 
 ### 10.1 Files / layers

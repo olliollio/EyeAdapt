@@ -11,7 +11,7 @@ EyeAdapt simulates how eyes adapt to darkness and light at night. Night becomes 
 - Optional glare when dark-adapted eyes face bright light, and optional flashlight dazzle from other players.
 - Night only. By day nothing changes.
 - Never darker than the server's own night. The mod only adds brightness and leaves your lighting config alone.
-- Adaptation is saved per player on the server. Time spent offline counts as darkness, so relogging gives no advantage.
+- Adaptation is saved per player on the server, also across restarts. By default you log back in with the value you logged off with (configurable), so relogging gives no advantage.
 - Fully configurable by server admins through `config.json`.
 
 ## Documentation

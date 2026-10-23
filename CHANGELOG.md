@@ -5,6 +5,10 @@ Config changes: new keys are added to an existing `config.json` automatically, e
 
 ## [Unreleased]
 
+### Added
+- `LogoutMode`: what a returning player gets. `"keep"` (default) = the NA they logged off with, `"fixed"` = offline time counts as darkness up to `LogoutAdaptation` (0.2), `"sleep"` = offline time counts as darkness (the old behaviour, long break = full night vision). `RecordKeepDays` (30) forgets players in `"keep"` mode. Config version 26.
+- Adaptation survives server restarts: all records are saved to `profiles/EyeAdapt/adaptation.json` every 60 s and on shutdown. A restart is a time freeze, the downtime doesn't count.
+
 ### Changed
 - Performance: the light scan runs once a second by day (glare and dazzle are night only), post-processing values are only sent when they change, the night clock only runs in `relativeToNight` mode.
 - Grass occlusion off by default (`UseGrassOcclusion`), sample step 4 m, only for lights up to `GrassLightMaxHeight` (new, 1.5 m) above the ground. Config version 25; an existing `config.json` keeps its values, so set `UseGrassOcclusion` to false by hand if you want the cheaper default.

@@ -6,8 +6,8 @@
 // Bump CURRENT_VERSION (and the Version default) whenever fields are added, so existing files get the new keys.
 class EyeAdaptSettings
 {
-	static const int CURRENT_VERSION = 25;
-	int Version = 25;
+	static const int CURRENT_VERSION = 26;
+	int Version = 26;
 	bool Enabled = true;
 
 	// Adaptation curve: fast stage (pupil/cones) + slow stage (rods), each ~95 % after its time.
@@ -24,7 +24,11 @@ class EyeAdaptSettings
 	float FastCurveSeconds = 20.0;
 	float FastCurveWeight = 0.3;           // share of the gain from the fast stage (0..1)
 	float AdaptCurvePower = 1.5;           // visual strength = adaptation ^ power (1 = linear). >1: early minutes subtle, the late phase counts more
-	float StartAdaptation = 0.2;           // fresh characters and players without a record since the last restart (dark start, like leaving a lit room)
+	float StartAdaptation = 0.2;           // new characters (first spawn, after death): dark start, like leaving a lit room
+	// Returning player (logout, disconnect, server restart). A restart is a time freeze in every mode: the downtime doesn't count
+	string LogoutMode = "keep";            // "keep" = the value they logged off with, "fixed" = offline time counts as darkness up to LogoutAdaptation, "sleep" = offline time counts as darkness (long break = full night vision)
+	float LogoutAdaptation = 0.2;          // "fixed" only: highest value a returning player gets
+	float RecordKeepDays = 30.0;           // "keep" only: forget a player after this much offline time (server uptime), they then return at StartAdaptation. 0 = never
 	float LightFastSeconds = 2.0;          // fast stage drops this fast under light
 	float LightSlowSeconds = 8.0;          // slow stage drops this fast under light (30 s left the scene overexposed at the fire for too long)
 	float ReportIntervalSeconds = 15.0;    // client reports its adaptation to the server this often (kept until the next login)
