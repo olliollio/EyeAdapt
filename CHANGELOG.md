@@ -3,6 +3,12 @@
 Format follows [Keep a Changelog](https://keepachangelog.com/). The version is `version` in `release/mod.cpp`.
 Config changes: new keys are added to an existing `config.json` automatically, existing values stay.
 
+## [Unreleased]
+
+### Added
+- `PerfLog` (default false): every client logs EyeAdapt's own cost every 10 s (per-frame update, light scans, lights, raycasts). Config version 27.
+- Admin guide 6.6: first measured performance numbers. Night in a base lit by 12 torches: about 0.06–0.07 ms per frame (0.5–0.6 % of the frame), worst single frame 0.73 ms; the frame rate drop in a lit base comes from rendering the lights, not from EyeAdapt.
+
 ## [0.3.0] - 2026-10-23
 
 **Server owners: update the mod on your server too.** Your `config.json` stays, new keys are added automatically (config version 26). Behaviour change: with the new default `LogoutMode` "keep", a long break no longer gives full night vision.

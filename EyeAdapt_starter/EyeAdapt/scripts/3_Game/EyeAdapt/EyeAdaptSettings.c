@@ -6,8 +6,8 @@
 // Bump CURRENT_VERSION (and the Version default) whenever fields are added, so existing files get the new keys.
 class EyeAdaptSettings
 {
-	static const int CURRENT_VERSION = 26;
-	int Version = 26;
+	static const int CURRENT_VERSION = 27;
+	int Version = 27;
 	bool Enabled = true;
 
 	// Adaptation curve: fast stage (pupil/cones) + slow stage (rods), each ~95 % after its time.
@@ -141,6 +141,7 @@ class EyeAdaptSettings
 	// Numpad debug keys (set adaptation, toggle effect, print lights). Lets players cheat, switch off on live servers
 	bool DebugKeys = false;
 	bool DebugLogging = false;             // client script log: the two [EyeAdapt] status lines every 5 s and event lines (dazzle). Off = quiet log
+	bool PerfLog = false;                  // client script log: EyeAdapt's own cost (per-frame update, light scans) every 10 s. For performance tests
 	bool ShowAdaptation = false;           // on-screen text with the current adaptation (NA), updated every second. For testing, players could use it to read their NA
 
 	// Vanilla defaults for the light table (written to config.json when the key is missing)

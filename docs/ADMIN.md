@@ -379,7 +379,7 @@ These use the default (Factor 1, `"auto"`, own radius). Colour decides whether t
 
 ## 6. Performance
 
-The mod was designed so that the cost stays small and does not grow with the size of the map. **It has not been benchmarked on a populated server yet.** The notes below describe where work happens and which settings control it. Treat the numbers as design intent until measured.
+The mod was designed so that the cost stays small and does not grow with the size of the map. **Measured on one client (6.6): about 0.03 ms per frame by day and 0.06–0.07 ms per frame at night in a base lit by 12 torches, under 0.6 % of the frame.** It has not been measured on a populated server yet. The notes below describe where work happens and which settings control it.
 
 ### 6.1 Where the work happens
 
@@ -418,7 +418,7 @@ In a normal scene, only a few lights pass all the cheap checks, so a scan costs 
 | Light table `Range` | A small `Range` on a bright light culls it early. |
 | Light table `Factor: 0` | Ignores the light before any other work. Use it for lights that should never count. |
 | `MaxOcclusionChecks` | Upper limit of raycasts per scan (default 8, 0 = no limit). Lower = cheaper in lit bases, but more lights are assumed blocked. |
-| `UseOcclusion` | `false` removes all raycasts and the grass check. Cheapest option, but lights behind walls then count fully. This is the biggest saving. |
+| `UseOcclusion` | `false` removes all raycasts and the grass check. Cheapest option, but lights behind walls then count fully, which breaks the idea of the mod. Not recommended: with the default `MaxOcclusionChecks` the raycasts cost well under 0.1 ms per frame (6.6). |
 | `UseGrassOcclusion` | Off by default. `true` adds the terrain sampling after the raycast. |
 | `GrassSampleStep` | Larger = fewer samples per light (default 4 m), but it can miss narrow grassy crests. |
 | `GrassLightMaxHeight` | Only lights this low above the ground (default 1.5 m) get the grass check. Lower = cheaper. |
@@ -436,11 +436,47 @@ In a normal scene, only a few lights pass all the cheap checks, so a scan costs 
 
 With `DebugLogging: true` the mod prints two `[EyeAdapt]` status lines to the client script log every 5 seconds, plus event lines (dazzle, flash grenade hit, restore after login, night clock, glare bloom, settings received). With it off, the mod only logs the one-time server config load lines. The lines are useful while testing but add up in a log file over a long session, so the default is `false` (quiet log). The lines do not affect frame rate noticeably, only log size. Numpad 9 output is not affected by this switch.
 
-### 6.6 How to measure on your server
+With `PerfLog: true` every client writes one `[EyeAdapt] perf` line to its script log every 10 seconds, independent of `DebugLogging`:
 
-1. Compare the frame time at night with and without the effect: Numpad 7 toggles it (needs `DebugKeys`).
-2. Stand in the worst case for your server (lit base, parked cars with lights on, several players with flashlights) and press Numpad 9 once. The log shows how many lights are registered, how many passed the cheap checks, how many raycasts were used, and how many lights were skipped because the dose was saturated.
-3. If the frame rate drops, lower `MaxOcclusionChecks` first, then try `UseOcclusion: false`. If that fixes it, keep `UseGrassOcclusion` off (the default), or raise `GrassSampleStep`.
+```
+[EyeAdapt] perf | fps 85 (worst frame 28 ms) | update avg 0.063 ms max 0.639 ms (0.534 % of frame) | scans 39 avg 0.379 ms max 0.573 ms | lights 12, passed avg 11 max 11, raycasts avg 8 max 8
+```
+
+- `fps` / `worst frame`: the whole game over the last 10 s, not only EyeAdapt.
+- `update`: EyeAdapt's own work per frame (scan included), average and worst single frame, and the average as a share of the frame time.
+- `scans`: light scans in the window (4 per second at night, 1 per second by day), average and worst time of one scan.
+- `lights`: lights registered near the player, how many passed the cheap checks, and occlusion raycasts per scan.
+
+Times are measured with the CPU performance counter around EyeAdapt's code only. Leave `PerfLog` off on live servers unless you are measuring.
+
+### 6.6 Measured results
+
+One client, 2026-10-23: AMD Ryzen 7 7800X3D, RTX 4090, 4K, local server on the same PC, Chernarus, mod version 0.3.0 + `PerfLog`. Default settings (`ScanInterval` 0.25, `MaxOcclusionChecks` 8, `UseOcclusion` true, `UseGrassOcclusion` false). The scene: a fenced base with 4 watchtowers, 12 vanilla torches (`Torch_Video`) as the only lights, the player standing in the yard with all of them in view.
+
+| Scene | Lights / passed / raycasts per scan | EyeAdapt per frame (avg / worst) | One scan (avg / worst) | Share of the frame |
+|---|---|---|---|---|
+| Day, almost no lights | 1 / 0 / 0 | 0.02–0.04 ms / 0.1–0.2 ms | 0.02 ms / 0.03 ms | 0.3 % |
+| Day, 12–14 torches in view | 14 / 13 / 3–8 | 0.03 ms / 0.3–0.5 ms | 0.15–0.30 ms / 0.40 ms | 0.3 % |
+| Night, no lights near | 1–2 / 0 / 0 | 0.03 ms / 0.1 ms | 0.01–0.02 ms / 0.03 ms | 0.3–0.4 % |
+| Night, 3 torches in view | 12 / 3 / 3 | 0.04–0.05 ms / 0.2–0.3 ms | 0.10–0.12 ms / 0.21 ms | 0.4 % |
+| **Night, 12 torches in view (worst case)** | 12 / 11 / 8 (the limit) | **0.06–0.07 ms / 0.73 ms** | **0.30–0.38 ms / 0.66 ms** | **0.5–0.6 %** |
+
+What this means:
+
+- **Occlusion raycasts are nearly the whole scan cost**, about 0.04 ms each. A scan without raycasts costs 0.01–0.02 ms. With the default limit of 8, one scan never went above 0.7 ms.
+- **At night the scan runs 4 times a second**, so the cost spreads to well under 0.1 ms per frame on average. The worst single frame (a frame that also runs a scan) was 0.73 ms, a few percent of a 60 FPS frame.
+- **The frame rate drop in a lit base is the engine, not EyeAdapt.** In the 12-torch scene the game ran at about 80–90 FPS, against 120 (frame cap) by day. Turning the effect off with Numpad 7 did not change it. Numpad 7 only switches off the visuals, the scan keeps running, so this also shows the post-processing itself costs nothing measurable. EyeAdapt's share at that frame rate is about 0.5 %, so without EyeAdapt the game would run about 0.5 FPS faster. Each torch has a dynamic light and fire particles, and rendering those is what costs frames, with or without the mod.
+- **Server:** no measurable load. The server ran at about 7200 FPS with a worst frame of 2–5 ms during the whole test.
+
+Not measured yet: `MaxOcclusionChecks` 0 (no limit, in the 12-torch scene it would be 11 raycasts instead of 8, so roughly 0.45 ms per scan), many players with flashlights, car headlights, `UseGrassOcclusion` on.
+
+### 6.7 How to measure on your server
+
+1. Set `PerfLog: true` in `config.json`, restart, and read the `[EyeAdapt] perf` lines in the client script log (6.5).
+2. Stand in the worst case for your server (lit base, parked cars with lights on, several players with flashlights) for a minute. Compare `update avg` and `max` with the table in 6.6.
+3. For more detail, press Numpad 9 once (needs `DebugKeys`). The log shows how many lights are registered, how many passed the cheap checks, how many raycasts were used, and how many lights were skipped because the dose was saturated.
+4. Keep the game window focused while measuring: DayZ throttles itself to about 20 FPS in the background, which makes the `fps` value meaningless.
+5. If EyeAdapt's share is too high, lower `MaxOcclusionChecks` first. Keep `UseGrassOcclusion` off (the default), or raise `GrassSampleStep`. `UseOcclusion: false` removes all raycasts, but then lights behind walls count fully, which breaks the gameplay idea; it is not recommended.
 ---
 
 ## 7. Settings reference
@@ -451,10 +487,11 @@ Every key in `config.json` with its default. Section numbers point to the explan
 
 | Key | Default | Meaning |
 |---|---|---|
-| `Version` | 26 | Config version, set by the mod. |
+| `Version` | 27 | Config version, set by the mod. |
 | `Enabled` | true | Master switch. |
 | `DebugKeys` | false | Numpad debug keys (2.4). **Set to false on live servers.** |
 | `DebugLogging` | false | Client script log: status lines every 5 s and event lines (6.5). |
+| `PerfLog` | false | Client script log: EyeAdapt's own cost (per-frame update, light scans) every 10 s (6.5, 6.7). For performance tests. |
 | `ShowAdaptation` | false | On-screen text "NA 73 %" in the top left, updated every second. Players could read their NA from it, so leave it off on live servers. |
 | `StartAdaptation` | 0.2 | NA for new characters (2.3). |
 | `LogoutMode` | "keep" | What a returning player gets: `"keep"`, `"fixed"` or `"sleep"` (2.3). |

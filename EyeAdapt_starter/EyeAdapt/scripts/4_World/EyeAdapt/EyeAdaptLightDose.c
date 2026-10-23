@@ -30,6 +30,8 @@ class EyeAdaptLightDose
 	protected string m_StrongestName;
 	protected float m_StrongestDose;
 	protected int m_LightCount;
+	protected int m_PassedCount;   // lights that passed the cheap checks (PerfLog)
+	protected int m_RaycastCount;  // occlusion raycasts of the last scan (PerfLog)
 
 	float Get()
 	{
@@ -59,6 +61,16 @@ class EyeAdaptLightDose
 	int GetLightCount()
 	{
 		return m_LightCount;
+	}
+
+	int GetPassedCount()
+	{
+		return m_PassedCount;
+	}
+
+	int GetRaycastCount()
+	{
+		return m_RaycastCount;
 	}
 
 	// Raw dose (sum before saturation, times DoseSensitivity) from which the saturated dose is >= 98 %.
@@ -199,6 +211,8 @@ class EyeAdaptLightDose
 				Print(string.Format("[EyeAdapt]   own car %1 headlights on | dose at least %2", ownCar.GetType(), cfg.OwnVehicleLightDose));
 		}
 
+		m_PassedCount = hits.Count();
+		m_RaycastCount = raycasts;
 		if (verbose)
 			Print(string.Format("[EyeAdapt] scan: %1 lights registered, %2 passed the cheap checks, %3 raycasts, %4 skipped (saturated) | raw dose %5 | saturated %6 | glare dose %7", m_LightCount, hits.Count(), raycasts, skipped, total, m_Dose, m_GlareDose));
 	}

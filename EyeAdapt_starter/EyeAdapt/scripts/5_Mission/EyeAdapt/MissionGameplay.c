@@ -28,6 +28,7 @@ modded class MissionGameplay
 	protected float m_EyeAdaptTextTimer;
 	protected bool m_EyeAdaptNightVision; // powered NVG/NV scope in use: counts as light (NIGHT_VISION_DOSE)
 	protected TextWidget m_EyeAdaptText; // optional on-screen adaptation readout (ShowAdaptation)
+	protected ref EyeAdaptPerf m_EyeAdaptPerf; // performance test log (PerfLog)
 
 	override void OnInit()
 	{
@@ -47,6 +48,20 @@ modded class MissionGameplay
 	{
 		super.OnUpdate(timeslice);
 
+		if (!EyeAdaptSettings.Get().PerfLog)
+		{
+			UpdateEyeAdapt(timeslice);
+			return;
+		}
+		if (!m_EyeAdaptPerf)
+			m_EyeAdaptPerf = new EyeAdaptPerf();
+		int start = TickCount(0);
+		UpdateEyeAdapt(timeslice);
+		m_EyeAdaptPerf.AddFrame(TickCount(start), timeslice);
+	}
+
+	protected void UpdateEyeAdapt(float timeslice)
+	{
 		if (!m_EyeAdapt)
 			return;
 
@@ -102,7 +117,10 @@ modded class MissionGameplay
 		if (m_EyeAdaptScanTimer >= scanInterval)
 		{
 			m_EyeAdaptScanTimer = 0;
+			int scanStart = TickCount(0);
 			m_EyeAdaptDose.Scan();
+			if (m_EyeAdaptPerf)
+				m_EyeAdaptPerf.AddScan(TickCount(scanStart), m_EyeAdaptDose.GetLightCount(), m_EyeAdaptDose.GetPassedCount(), m_EyeAdaptDose.GetRaycastCount());
 			m_EyeAdaptAmbientTarget = EyeAdaptEnvironment.GetAmbientGain(player);
 		}
 
