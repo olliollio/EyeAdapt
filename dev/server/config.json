@@ -145,7 +145,7 @@
     "MaxDesaturation": 0.6000000238418579,
     "ColorReturnSmoothSeconds": 0.5,
     "MaxContrastBoost": 0.0,
-    "NightBlackLevel": -0.015,
+    "NightBlackLevel": 0.0,
     "BlueShift": 0.2,
     "NightGrain": 0.0,
     "NightGrainSize": 0.6,

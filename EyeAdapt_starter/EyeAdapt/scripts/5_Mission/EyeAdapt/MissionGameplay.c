@@ -237,7 +237,9 @@ modded class MissionGameplay
 		float rodVision = s * (1 - m_EyeAdaptColorDose);
 		float saturation = 1 - rodVision * cfg.MaxDesaturation;
 		float contrast = 1 + s * m_EyeAdaptAmbient * cfg.MaxContrastBoost; // counters the haze of the EV boost, so it scales with it
-		float offset = s * m_EyeAdaptAmbient * cfg.NightBlackLevel; // pulls the sky lifted by the EV boost back to black
+		// Pulls the sky lifted by the EV boost back to black. Ambient counts squared: on dark nights / dark server
+		// configs the whole image sits close to 0 after the tonemap, a fixed offset would crush it to pitch black
+		float offset = s * m_EyeAdaptAmbient * m_EyeAdaptAmbient * cfg.NightBlackLevel;
 
 		// Blue shift: keep blue, pull red down fully and green halfway
 		float shift = rodVision * cfg.BlueShift;

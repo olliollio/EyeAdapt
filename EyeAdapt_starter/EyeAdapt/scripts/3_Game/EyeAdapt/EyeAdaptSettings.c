@@ -92,7 +92,7 @@ class EyeAdaptSettings
 	float MaxDesaturation = 0.6;           // in the dark. Near light colour returns (cones take over), scaled down by the light dose
 	float ColorReturnSmoothSeconds = 0.5;  // smoothing of the colour return (the light scan runs every ScanInterval)
 	float MaxContrastBoost = 0.125;        // counters the grey/foggy look of a strong EV boost (0.15 left the dark sky too bright in test)
-	float NightBlackLevel = -0.015;        // black point at full adaptation (colour offset, after the tonemap, 0 = off, 0..-0.1). The EV boost lifts the empty sky to grey, this pulls it back to black; stars and Milky Way are bright points and stay. Scaled like the contrast boost
+	float NightBlackLevel = 0.0;           // black point at full adaptation (colour offset, after the tonemap, 0 = off, 0..-0.1). The EV boost lifts the empty sky to grey, this pulls it back to black; stars and Milky Way are bright points and stay. Scaled with the ambient light squared. Off by default: on dark server configs even -0.015 crushed the whole night to pitch black (Reddit feedback 2026-10-15)
 	float BlueShift = 0.1;                 // Purkinje effect, 0 = off
 	// Optional extras, off by default. Both scale with the rod vision (adaptation, less near light) and step aside for night vision
 	float NightGrain = 0.0;                // film grain at full adaptation, 0..1 (0 = off). Dark-adapted vision is noisy; also hurts gamma/brightness filter abuse

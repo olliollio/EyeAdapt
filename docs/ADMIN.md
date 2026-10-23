@@ -197,7 +197,7 @@ At full NA (before ambient scaling):
 | Brightness boost | `MaxEvBoost` | 5 EV |
 | Desaturation | `MaxDesaturation` | 0.6 (scaled down near light) |
 | Contrast boost | `MaxContrastBoost` | 0.125 (counters the grey look of a strong boost) |
-| Black point | `NightBlackLevel` | -0.015 (sky back to black after the EV boost) |
+| Black point | `NightBlackLevel` | 0.0 (off; optional, pulls the sky back to black after the EV boost) |
 | Blue shift | `BlueShift` | 0.1 (0 = off) |
 | Colour return smoothing | `ColorReturnSmoothSeconds` | 0.5 |
 
@@ -520,7 +520,7 @@ Every key in `config.json` with its default. Section numbers point to the explan
 | `MaxDesaturation` | 0.6 | Colour loss at full NA. |
 | `ColorReturnSmoothSeconds` | 0.5 | Smoothing of the colour return near light. |
 | `MaxContrastBoost` | 0.125 | Counters the foggy look of the boost. |
-| `NightBlackLevel` | -0.015 | Black point at full adaptation (colour offset after the tonemap, 0 = off, 0 to -0.1). The EV boost lifts the empty night sky to grey, this pulls it back to black. Stars and the Milky Way are bright and stay. Scaled like the contrast boost. |
+| `NightBlackLevel` | 0.0 | Black point at full adaptation (colour offset after the tonemap, 0 = off, 0 to -0.1). The EV boost lifts the empty night sky to grey, this pulls it back to black. Stars and the Milky Way are bright and stay. Scaled with the ambient light squared. Off by default: on dark server configs even small values (-0.015) crush the night to pitch black. Only try it on bright-night servers, start around -0.005. |
 | `BlueShift` | 0.1 | Purkinje effect. 0 = off. |
 | `NightGrain` | 0 | Film grain, 0 = off. |
 | `NightGrainSize` / `NightGrainFrequency` | 2.75 / 20 | Grain look. |

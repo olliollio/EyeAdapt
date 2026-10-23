@@ -8,6 +8,7 @@ Config changes: new keys are added to an existing `config.json` automatically, e
 ### Changed
 - Performance: the light scan runs once a second by day (glare and dazzle are night only), post-processing values are only sent when they change, the night clock only runs in `relativeToNight` mode.
 - Grass occlusion off by default (`UseGrassOcclusion`), sample step 4 m, only for lights up to `GrassLightMaxHeight` (new, 1.5 m) above the ground. Config version 25; an existing `config.json` keeps its values, so set `UseGrassOcclusion` to false by hand if you want the cheaper default.
+- `NightBlackLevel` off by default (0, was -0.015) and scaled with the ambient light squared: on dark server configs it crushed the whole night to pitch black. An existing `config.json` keeps its value, so set `NightBlackLevel` to 0 by hand.
 
 ## [0.2.0] - 2026-10-15
 
