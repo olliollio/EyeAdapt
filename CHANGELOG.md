@@ -15,6 +15,9 @@ Config changes: new keys are added to an existing `config.json` automatically, e
 - Eyes closed = darkness: while unconscious, under a burlap sack or asleep with Terje Medicine, light doesn't count and the eyes adapt as in the dark, even next to a fire. No glare or dazzle while the eyes are closed.
 - Terje Skills: the CatVision perk and EyeAdapt now add up. Before, EyeAdapt's exposure replaced the perk's boost while adaptation was active.
 
+### Changed
+- New logo (owl with big orange eyes) in the launcher, main menu and Workshop preview.
+
 ### Fixed
 - The `PerfLog` line was printed as `string line = '...'`.
 
