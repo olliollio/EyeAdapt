@@ -83,18 +83,12 @@ No Terje? Nothing changes. Unconscious players and players with a burlap sack ov
 [/list]
 
 [h2]Changelog[/h2]
-[b]0.2.0[/b]
-[b]Server owners: update the mod on your server too.[/b] Clients get the new version from the Workshop, a server on an older version kicks them with "Client has a corrupt or modified PBO". After updating, copy the new keys\EyeAdapt.bikey into the server's keys folder and restart. Your config.json stays as it is.
+[b]0.4.0[/b]
+[b]Server owners: update the mod on your server too.[/b] Clients get the new version from the Workshop, a server on an older version kicks them with "Client has a corrupt or modified PBO". Your config.json stays, new keys are added automatically.
 [list]
-[*] [b]New:[/b] [b]FullMoonShare[/b] (default 0.8) caps how bright a clear full moon night gets. Real-time servers with dark nights found it too bright before.
-[*] [b]New:[/b] light table in config.json: per light type a brightness factor, colour handling (auto / red / full) and range. Muzzle flashes are ignored, flares, headlights and fireworks count more.
-[*] [b]New:[/b] a flash grenade hit drops your adaptation (FlashbangAdaptationLoss, 0 = off).
-[*] [b]Changed:[/b] full adaptation takes 10 minutes by default (was 3). Setting: FullAdaptSeconds.
-[*] [b]Changed:[/b] new and fresh characters start dark-adapted at 20 % (StartAdaptation), like stepping out of a lit room.
-[*] [b]Changed:[/b] adaptation is kept in server memory only, no player files. Relogging still gains nothing, a server restart counts as sleep.
-[*] [b]Changed:[/b] DebugKeys is off by default, so players can't cheat with the numpad.
-[*] [b]Fixed:[/b] log spam. Debug logging is off by default now (DebugLogging).
-[*] New config keys are added to your config.json automatically, your own values stay.
+[*] [b]New:[/b] eyes closed = darkness. Unconscious, burlap sack over the head, or asleep with Terje Medicine: light no longer counts, so the eyes adapt even next to a fire. No glare while the eyes are closed.
+[*] [b]New:[/b] works with Terje Skills Cat Vision. The perk and the adaptation add up (before, EyeAdapt replaced the perk while adapting).
+[*] [b]New:[/b] PerfLog setting for admins: logs EyeAdapt's own cost per frame. Measured in a base lit by 12 torches: about 0.07 ms per frame.
 [/list]
 
 [b]How the adaptation curve works[/b]
