@@ -3,7 +3,7 @@
 class PPERequester_EyeAdapt extends PPERequester_GameplayBase
 {
 	// Own priority layers, chosen to sit next to the vanilla users of each parameter (docs/engine/ppe.md §6)
-	static const int L_EV = 450;        // exposure: above NVG (100/200) and flashbang (400), below burlap sack (500) and death (1000)
+	static const int L_EV = 450;        // exposure: above NVG (100/200) and flashbang (400), below burlap sack (500) and death (1000). Terje CatEyes (266) is folded in, see GetCatEyesEV
 	static const int L_SAT = 150;       // saturation: above blood loss (100), LOWEST so we never re-saturate a bleeding player
 	static const int L_CONTRAST = 100;  // contrast: unused by vanilla
 	static const int L_OFFSET = 100;    // colour offset (black point): unused by vanilla
@@ -51,6 +51,8 @@ class PPERequester_EyeAdapt extends PPERequester_GameplayBase
 		// Neutral values are normalised first, so "release" compares equal to "release". Only changed values are sent
 		if (ev <= 0.001)
 			ev = 0;
+		else
+			ev += GetCatEyesEV();
 		if (ev != m_LastEv)
 		{
 			m_LastEv = ev;
@@ -115,6 +117,34 @@ class PPERequester_EyeAdapt extends PPERequester_GameplayBase
 		}
 
 		ApplyGrain(grain);
+	}
+
+	// Terje Skills' CatVision perk writes exposure HIGHEST at layer 266, so our SET at 450 would replace it.
+	// Fold its current value into ours instead, so the perk and the adaptation add up. Soft dependency:
+	// only compiled with Terje Skills loaded (its define), 0 otherwise. EnScript.GetClassVar read 0 here
+	// Debug: CatEyes state for the log, -1 = Terje Skills not loaded, 0 = loaded but not running, 1 = running
+	static int GetCatEyesState()
+	{
+		#ifdef TERJE_SKILLS_MOD
+		PPERequester_CatEyes catEyes = PPERequester_CatEyes.Cast(PPERequesterBank.GetRequester(PPERequesterBank.REQ_TERJESKILLS_CATEYES));
+		if (!catEyes)
+			return -1;
+		if (!catEyes.IsRequesterRunning())
+			return 0;
+		return 1;
+		#else
+		return -1;
+		#endif
+	}
+
+	float GetCatEyesEV()
+	{
+		#ifdef TERJE_SKILLS_MOD
+		PPERequester_CatEyes catEyes = PPERequester_CatEyes.Cast(PPERequesterBank.GetRequester(PPERequesterBank.REQ_TERJESKILLS_CATEYES));
+		if (catEyes && catEyes.IsRequesterRunning())
+			return Math.Max(catEyes.m_terjeLastValue, 0);
+		#endif
+		return 0;
 	}
 
 	// Film grain only shows with a non-zero NV noise multiplier (vanilla comment in ppefilmgrain.c). Resent only when the value changes

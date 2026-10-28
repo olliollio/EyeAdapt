@@ -65,7 +65,8 @@ class EyeAdaptPerf
 			line += " | lights " + m_Lights + ", passed avg " + Fmt(m_Passed / scans) + " max " + m_PassedMax;
 			line += ", raycasts avg " + Fmt(m_Raycasts / scans) + " max " + m_RaycastsMax;
 		}
-		Print(line);
+		// Print(variable) logs "string line = '...'", so pass an expression instead
+		Print(string.Format("%1", line));
 		Reset();
 	}
 

@@ -8,6 +8,8 @@ Config changes: new keys are added to an existing `config.json` automatically, e
 ### Added
 - `PerfLog` (default false): every client logs EyeAdapt's own cost every 10 s (per-frame update, light scans, lights, raycasts). Config version 27.
 - Admin guide 6.6: first measured performance numbers. Night in a base lit by 12 torches: about 0.06–0.07 ms per frame (0.5–0.6 % of the frame), worst single frame 0.73 ms; the frame rate drop in a lit base comes from rendering the lights, not from EyeAdapt.
+- Eyes closed = darkness: while unconscious, under a burlap sack or asleep with Terje Medicine, light doesn't count and the eyes adapt as in the dark, even next to a fire. No glare or dazzle while the eyes are closed.
+- Terje Skills: the CatVision perk and EyeAdapt now add up. Before, EyeAdapt's exposure replaced the perk's boost while adaptation was active.
 
 ## [0.3.0] - 2026-10-23
 

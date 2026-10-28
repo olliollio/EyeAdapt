@@ -25,6 +25,29 @@ class EyeAdaptEnvironment
 		return IsNightVisionGoggles(player) || IsNightVisionScope(player);
 	}
 
+	// Eyes closed or covered: light can't reach them, so adaptation rises even next to a fire.
+	// Unconscious, burlap sack over the head, or asleep with Terje Medicine (state > 0 = really asleep,
+	// negative = lying down but too cold/sick/rested to sleep)
+	static bool AreEyesClosed(PlayerBase player)
+	{
+		if (!player)
+			return false;
+		if (player.IsUnconscious())
+			return true;
+
+		PPERequesterBase burlap = PPERequesterBank.GetRequester(PPERequesterBank.REQ_BURLAPSACK);
+		if (burlap && burlap.IsRequesterRunning())
+			return true;
+
+		#ifdef TERJE_MEDICINE_MOD
+		TerjePlayerStats stats = player.GetTerjeStats();
+		if (stats && stats.GetSleepingState() > 0)
+			return true;
+		#endif
+
+		return false;
+	}
+
 	// The bright image costs dark adaptation: goggles cover both eyes (NightVisionDose),
 	// a scope only the aiming eye (NightVisionScopeDose)
 	static float GetNightVisionDose(PlayerBase player)

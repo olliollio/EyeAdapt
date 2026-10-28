@@ -17,6 +17,8 @@ rem 1 = also load VPPAdminTools (needs CF) for teleport/time/weather while testi
 rem Admin access: Steam64 ID in %SERVER%\profiles\VPPAdminTools\Permissions\SuperAdmins\SuperAdmins.txt
 set ADMIN=1
 set WORKSHOP=%DAYZ%\!Workshop
+rem 1 = also load Terje Core + Medicine + Skills (+ VPP compatibility when ADMIN=1), for testing sleep and the night vision skill
+set TERJE=0
 
 rem Server config: serverDZ.cfg (real time) or serverDZ_fasttime.cfg (12x day, 48x night, for testing AdaptationMode "relativeToNight")
 set SERVERCFG=serverDZ.cfg
@@ -44,6 +46,7 @@ if "%ADMIN%"=="1" (
 	set SERVERMODS=@CF;@VPPAdminTools;%MOD%
 	set CLIENTMODS=!Workshop\@CF;!Workshop\@VPPAdminTools;%MOD%
 )
+if "%TERJE%"=="1" call :terje
 
 cd /d "%SERVER%"
 start "" DayZServer_x64.exe -config=%SERVERCFG% -port=2302 -profiles=profiles "-mod=%SERVERMODS%" -doLogs -adminLog
@@ -55,3 +58,17 @@ rem Client must run with BattlEye, plain DayZ_x64.exe gets kicked ("Game restart
 rem Same call the DayZ Launcher uses: DayZ_BE.exe 0 1 1 -exe DayZ_x64.exe <game args>
 rem No -window: windowed mode lifts the blacks on this PC (vanilla too), so judge night visuals in fullscreen only
 start "" DayZ_BE.exe 0 1 1 -exe DayZ_x64.exe -connect=127.0.0.1 -port=2302 "-mod=%CLIENTMODS%" -nosplash -noPause -name=Dev
+goto :eof
+
+:terje
+rem Terje mods load before EyeAdapt, so their defines are known when EyeAdapt compiles
+set TERJEMODS=@Terje-Core;@Terje-Medicine;@Terje-Skills
+if "%ADMIN%"=="1" set TERJEMODS=%TERJEMODS%;@Terje-Compatibility-VPP
+for %%M in (%TERJEMODS%) do robocopy "%WORKSHOP%\%%M" "%SERVER%\%%M" /MIR /NJH /NJS /NDL /NFL >nul
+copy /Y "%WORKSHOP%\@Terje-Core\Keys\Terje.bikey" "%SERVER%\keys\" >nul
+set CT=
+for %%M in (%TERJEMODS%) do call set "CT=%%CT%%!Workshop\%%M;"
+rem Insert the Terje mods right before EyeAdapt (always last in both lists)
+set SERVERMODS=%SERVERMODS:@EyeAdapt=%%TERJEMODS%;%MOD%
+set CLIENTMODS=%CLIENTMODS:@EyeAdapt=%%CT%%MOD%
+goto :eof

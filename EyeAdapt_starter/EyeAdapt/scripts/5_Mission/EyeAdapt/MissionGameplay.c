@@ -27,6 +27,7 @@ modded class MissionGameplay
 	protected float m_EyeAdaptLogTimer;
 	protected float m_EyeAdaptTextTimer;
 	protected bool m_EyeAdaptNightVision; // powered NVG/NV scope in use: counts as light (NIGHT_VISION_DOSE)
+	protected bool m_EyeAdaptEyesClosed;  // unconscious, sack or asleep (Terje): light dose 0, no glare. Only kept for the change log line
 	protected TextWidget m_EyeAdaptText; // optional on-screen adaptation readout (ShowAdaptation)
 	protected ref EyeAdaptPerf m_EyeAdaptPerf; // performance test log (PerfLog)
 
@@ -131,6 +132,16 @@ modded class MissionGameplay
 		float dose = m_EyeAdaptDose.Get();
 		m_EyeAdaptNightVision = EyeAdaptEnvironment.IsNightVisionActive(player);
 		dose = Math.Max(dose, EyeAdaptEnvironment.GetNightVisionDose(player));
+		// Eyes closed (unconscious, sack, Terje sleep): no light gets in, so the eyes adapt like in darkness
+		bool eyesClosed = EyeAdaptEnvironment.AreEyesClosed(player);
+		if (eyesClosed)
+			dose = 0;
+		if (eyesClosed != m_EyeAdaptEyesClosed)
+		{
+			m_EyeAdaptEyesClosed = eyesClosed;
+			if (EyeAdaptSettings.Get().DebugLogging)
+				Print(string.Format("[EyeAdapt] eyes closed %1 (adaptation %2)", eyesClosed, m_EyeAdapt.Get()));
+		}
 
 		float target = 1 - dose * EyeAdaptSettings.Get().MaxDoseEffect;
 		m_EyeAdapt.Update(timeslice, target);
@@ -152,7 +163,20 @@ modded class MissionGameplay
 		float colorK = Math.Clamp(timeslice / Math.Max(EyeAdaptSettings.Get().ColorReturnSmoothSeconds, 0.01), 0, 1);
 		m_EyeAdaptColorDose += (m_EyeAdaptDose.Get() - m_EyeAdaptColorDose) * colorK;
 
-		if (IsEyeAdaptGlareIdle())
+		if (eyesClosed)
+		{
+			// No glare or dazzle through closed eyes: end anything running (as if it had faded) and keep the recovery clock going
+			if (m_EyeAdaptGlareTime >= 0 || m_EyeAdaptDazzleTime >= 0)
+				m_EyeAdaptSinceGlare = 0;
+			m_EyeAdaptGlare = 0;
+			m_EyeAdaptGlareTime = -1;
+			m_EyeAdaptGlow = 0;
+			m_EyeAdaptDazzle = 0;
+			m_EyeAdaptDazzleTime = -1;
+			m_EyeAdaptSinceGlare += timeslice;
+			EyeAdaptBloom.Reset();
+		}
+		else if (IsEyeAdaptGlareIdle())
 		{
 			// Day and nothing left running: skip the glare math. Keep the shared recovery clock going,
 			// re-arm the dazzle (the beam doesn't matter by day) and make sure no bloom stays on the material
@@ -186,6 +210,9 @@ modded class MissionGameplay
 				Print(string.Format("[EyeAdapt] env | moon raw %1 | moon light %2 | overcast %3 | sky light %4 | ambient gain %5 | underground %6 | NV type %7 (active %8) | glare peak %9",
 					EyeAdaptEnvironment.GetMoonIntensityRaw(), EyeAdaptEnvironment.GetMoonLight(), EyeAdaptEnvironment.GetOvercast(),
 					EyeAdaptEnvironment.GetSkyLight(), m_EyeAdaptAmbient, player.m_UndergroundPresence, player.GetNVType(), m_EyeAdaptNightVision, m_EyeAdaptGlarePeak));
+				// Terje Skills CatVision: state -1 = not loaded, 0 = perk off, 1 = running; its EV is added to ours
+				if (m_EyeAdaptPPE && PPERequester_EyeAdapt.GetCatEyesState() >= 0)
+					Print(string.Format("[EyeAdapt] terje | cateyes state %1 | cateyes EV %2 | world IsNight %3", PPERequester_EyeAdapt.GetCatEyesState(), m_EyeAdaptPPE.GetCatEyesEV(), g_Game.GetWorld().IsNight()));
 			}
 			m_EyeAdaptGlarePeak = 0;
 		}

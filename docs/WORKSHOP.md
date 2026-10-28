@@ -66,6 +66,14 @@ Make darkness something you [b]manage[/b], not a fixed setting. Your eyes adapt 
 [*] The effect is client-side post-processing, like any visual mod.
 [/list]
 
+[h2]Works with Terje[/h2]
+Running Terje on your hardcore server? EyeAdapt sits on top of it.
+[list]
+[*] [b]Cat Vision (Terje Skills):[/b] the perk and the adaptation add up. A skilled player sees better, a skilled and dark-adapted player sees best. Too bright together? Lower Skills.StealthCatVisionPower in Terje's Skills.cfg or MaxEvBoost in EyeAdapt's config.json.
+[*] [b]Sleeping (Terje Medicine):[/b] eyes closed means darkness. Sleep next to the campfire and you wake up dark-adapted.
+[/list]
+No Terje? Nothing changes. Unconscious players and players with a burlap sack over the head adapt to the dark too, in vanilla.
+
 [h2]Compatibility[/h2]
 [list]
 [*] Tested with CF and VPPAdminTools loaded, on Chernarus, Livonia and Namalsk.
@@ -105,4 +113,5 @@ Admin guide: https://github.com/olliollio/EyeAdapt/blob/main/docs/ADMIN.md
 - Fill the TODOs: compatibility, feedback link, source link.
 - Check the Workshop for name clashes before final title.
 - Verify claims before posting: flashbang reset (commit b902171), red headtorch, NV cost, performance statement if you add one.
+- Terje: Cat Vision stacking verified in game 2026-10-28 (NA 0 vs 100 with perk stage 5). Sleep next to a burning fire verified the same day (NA rises while asleep, held low while awake).
 - Decide whether to mention the Reddit post (1000+ upvotes) as social proof.

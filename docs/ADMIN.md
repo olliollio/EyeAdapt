@@ -113,6 +113,7 @@ Everything the player sees at night is driven by this value and by the available
 | Standing at a campfire at night | NA falls fast and stays low. The player sees the fire but cannot see into the dark. People in the dark can see the player. |
 | Looking at a light while fully adapted | Glare (see section 4), then NA is lower. |
 | Using night vision | NA drops by the NV dose (section 5.5). |
+| Eyes closed: unconscious, burlap sack, asleep (Terje Medicine) | No light reaches the eyes, so NA rises as in darkness, even next to a fire. No glare or dazzle. |
 | Logging in again | Depends on `LogoutMode` (2.3): by default the NA you logged off with. Relogging quickly gains nothing. |
 
 Colour returns near light: the closer and brighter the light, the more colour comes back, because the cones take over from the rods.
@@ -366,6 +367,8 @@ These use the default (Factor 1, `"auto"`, own radius). Colour decides whether t
 - **Night vision (NV goggles and scopes)** is not a light. Powered goggles cost `NightVisionDose` (default 0.5, both eyes), a powered NV scope costs `NightVisionScopeDose` (default 0.25, only the aiming eye). `0` makes it free. Either way, glare and dazzle stay off while NV is on.
 - **Flash grenade hit.** The grenade's light lives only 0.35 s, which the light scan could miss. So the mod does not rely on the scan: when vanilla decides the player is hit (in range and with line of sight to the head), NA is reduced by `FlashbangAdaptationLoss` (default 1.0 = back to zero, 0 = off). The white-out and the ringing are vanilla's. After that NA recovers normally in the dark. `FlashGrenadeLight` is not in the light table.
 - **Sitting in a car with its headlights on** costs at least `OwnVehicleLightDose` (default 0.5), because you look at the lit road. Your own headlights are not treated as a light in your face.
+- **Eyes closed.** While the player is unconscious, has a burlap sack over the head or sleeps with Terje Medicine (really asleep, not just lying down), the light dose counts as zero and glare and dazzle are off.
+- **Terje Skills Cat Vision.** The perk brightens the night by up to 1.5 EV (stage 5). EyeAdapt adds its own boost on top, so a skilled player who is also dark-adapted sees best. The perk strength is Terje's setting `Skills.StealthCatVisionPower` in `profiles/TerjeSettings/Skills.cfg` (0 = off). EyeAdapt's part stays limited by `MaxEvBoost`. Without Terje nothing changes.
 - **Debug and glare rules** such as `GlareViewPower` and the trigger levels are normal settings, not table entries.
 
 ### 5.6 Known limits
